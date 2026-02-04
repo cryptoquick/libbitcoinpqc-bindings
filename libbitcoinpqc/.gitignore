@@ -1,0 +1,7 @@
+build/
+*.o
+benchmark_results.txt
+**.gcno
+**.lcov
+tags
+TAGS
