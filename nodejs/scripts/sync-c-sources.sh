@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Script to sync C source files from parent directory to src/c_sources
+# Script to sync C source files from the libbitcoinpqc submodule to src/c_sources
 # This should be run before building or publishing the package
 
 set -e
 
-echo "Syncing C source files..."
+echo "Syncing C source files from libbitcoinpqc submodule..."
 
 # Remove existing c_sources directory
 rm -rf src/c_sources
@@ -15,22 +15,26 @@ mkdir -p src/c_sources
 
 # Copy C source files
 echo "Copying main C source file..."
-cp ../src/bitcoinpqc.c src/c_sources/
+cp ../libbitcoinpqc/src/bitcoinpqc.c src/c_sources/
 
 echo "Copying ML-DSA source files..."
-cp -r ../src/ml_dsa src/c_sources/
+cp -r ../libbitcoinpqc/src/ml_dsa src/c_sources/
 
 echo "Copying SLH-DSA source files..."
-cp -r ../src/slh_dsa src/c_sources/
+cp -r ../libbitcoinpqc/src/slh_dsa src/c_sources/
 
 echo "Copying Dilithium reference implementation..."
-cp -r ../dilithium/ref src/c_sources/dilithium_ref
+cp -r ../libbitcoinpqc/dilithium/ref src/c_sources/dilithium_ref
 
 echo "Copying SPHINCS+ reference implementation..."
-cp -r ../sphincsplus/ref src/c_sources/sphincsplus_ref
+cp -r ../libbitcoinpqc/sphincsplus/ref src/c_sources/sphincsplus_ref
 
 echo "Copying include files..."
-cp -r ../include src/c_sources/
+cp -r ../libbitcoinpqc/include src/c_sources/
+
+echo "Copying custom randombytes files..."
+cp ../libbitcoinpqc/src/randombytes_custom.c src/c_sources/
+cp ../libbitcoinpqc/src/randombytes_custom.h src/c_sources/
 
 # Update include paths in C source files
 echo "Updating include paths..."

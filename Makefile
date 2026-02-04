@@ -1,5 +1,6 @@
-# libbitcoinpqc - Post-Quantum Cryptography for Bitcoin
-# Main Makefile for building, testing, and installing all components
+# libbitcoinpqc-bindings - Language Bindings for libbitcoinpqc
+# Main Makefile for building, testing, and installing language bindings
+# The C library is provided by the libbitcoinpqc git submodule
 
 # User-configurable variables
 PREFIX ?= /usr/local
@@ -50,24 +51,24 @@ bindings: python nodejs
 # Print build information
 .PHONY: info
 info:
-	@echo -e "${BLUE}Building libbitcoinpqc - Post-Quantum Cryptography for Bitcoin${NC}"
+	@echo -e "${BLUE}libbitcoinpqc-bindings - Language Bindings for libbitcoinpqc${NC}"
 	@echo -e "${BLUE}------------------------------------------------------------${NC}"
+	@echo -e "${YELLOW}C library provided by git subtree at libbitcoinpqc/${NC}"
 	@if [ -n "$(CMAKE)" ]; then echo -e "  [${GREEN}✓${NC}] CMake: $(CMAKE)"; else echo -e "  [${RED}✗${NC}] CMake (required for C library)"; fi
 	@if [ -n "$(CARGO)" ]; then echo -e "  [${GREEN}✓${NC}] Cargo: $(CARGO)"; else echo -e "  [${RED}✗${NC}] Cargo (required for Rust library)"; fi
 	@if [ -n "$(PYTHON)" ]; then echo -e "  [${GREEN}✓${NC}] Python: $(PYTHON)"; else echo -e "  [${YELLOW}!${NC}] Python (optional for Python bindings)"; fi
 	@if [ -n "$(NPM)" ]; then echo -e "  [${GREEN}✓${NC}] NPM: $(NPM)"; else echo -e "  [${YELLOW}!${NC}] NPM (optional for NodeJS bindings)"; fi
 	@echo -e "${BLUE}------------------------------------------------------------${NC}"
-	@echo -e "${YELLOW}This will build the core libraries (C and Rust) and language bindings.${NC}"
 	@echo -e "${YELLOW}Available make targets:${NC}"
-	@echo -e "  ${GREEN}make c-lib${NC}        - Build only the C library"
-	@echo -e "  ${GREEN}make rust-lib${NC}     - Build only the Rust library"
-	@echo -e "  ${GREEN}make bindings${NC}     - Build only Python and NodeJS bindings"
-	@echo -e "  ${GREEN}make examples${NC}     - Build example programs"
-	@echo -e "  ${GREEN}make everything${NC}   - Build all components (libraries, bindings, examples, tests)"
+	@echo -e "  ${GREEN}make c-lib${NC}        - Build the C library (from subtree)"
+	@echo -e "  ${GREEN}make rust-lib${NC}     - Build the Rust bindings"
+	@echo -e "  ${GREEN}make bindings${NC}     - Build Python and NodeJS bindings"
+	@echo -e "  ${GREEN}make examples${NC}     - Build and run Rust examples"
+	@echo -e "  ${GREEN}make everything${NC}   - Build all components"
 	@echo -e "  ${GREEN}make help${NC}         - Show all available targets"
 	@echo -e "${BLUE}------------------------------------------------------------${NC}"
 
-# C library targets
+# C library targets (built from libbitcoinpqc subtree)
 .PHONY: c-lib
 c-lib: cmake-configure cmake-build
 
@@ -75,7 +76,7 @@ c-lib: cmake-configure cmake-build
 cmake-configure:
 	@echo -e "${BLUE}Configuring C library with CMake...${NC}"
 	@mkdir -p $(BUILD_DIR)
-	@cd $(BUILD_DIR) && cmake .. -DCMAKE_BUILD_TYPE=$(if $(filter 1,$(DEBUG)),Debug,Release) -DBUILD_EXAMPLES=ON -DCMAKE_INSTALL_PREFIX=$(PREFIX)
+	@cd $(BUILD_DIR) && cmake ../libbitcoinpqc -DCMAKE_BUILD_TYPE=$(if $(filter 1,$(DEBUG)),Debug,Release) -DCMAKE_INSTALL_PREFIX=$(PREFIX)
 
 .PHONY: cmake-build
 cmake-build:
@@ -90,12 +91,7 @@ rust-lib:
 
 # Example targets
 .PHONY: examples
-examples: c-examples rust-examples
-
-.PHONY: c-examples
-c-examples: c-lib
-	@echo -e "${BLUE}Building C examples...${NC}"
-	@cmake --build $(BUILD_DIR) --target examples
+examples: rust-examples
 
 .PHONY: rust-examples
 rust-examples:
@@ -104,12 +100,7 @@ rust-examples:
 
 # Testing targets
 .PHONY: tests
-tests: test-c test-rust
-
-.PHONY: test-c
-test-c: c-lib
-	@echo -e "${BLUE}Running C tests...${NC}"
-	@cd $(BUILD_DIR) && ctest $(if $(filter 1,$(VERBOSE)),-V,)
+tests: test-rust
 
 .PHONY: test-rust
 test-rust:
@@ -166,7 +157,7 @@ install: install-c install-rust
 .PHONY: install-c
 install-c: c-lib
 	@echo -e "${BLUE}Installing C library to $(PREFIX)...${NC}"
-	@cd $(BUILD_DIR) && cmake --install .
+	@cmake --install $(BUILD_DIR)
 
 .PHONY: install-rust
 install-rust: rust-lib
@@ -196,31 +187,27 @@ clean-bindings:
 # Help target
 .PHONY: help
 help:
-	@echo -e "${BLUE}libbitcoinpqc Makefile Help${NC}"
-	@echo -e "${BLUE}-------------------------${NC}"
+	@echo -e "${BLUE}libbitcoinpqc-bindings Makefile Help${NC}"
+	@echo -e "${BLUE}------------------------------------${NC}"
 	@echo -e "Main targets:"
-	@echo -e "  ${GREEN}all${NC}             - Build C and Rust libraries and language bindings (default)"
+	@echo -e "  ${GREEN}all${NC}             - Build C library, Rust bindings, and language bindings (default)"
+	@echo -e "  ${GREEN}c-lib${NC}           - Build the C library (from subtree)"
+	@echo -e "  ${GREEN}rust-lib${NC}        - Build the Rust bindings"
 	@echo -e "  ${GREEN}bindings${NC}        - Build Python and NodeJS bindings"
-	@echo -e "  ${GREEN}everything${NC}      - Build all components including examples and tests"
-	@echo -e "  ${GREEN}c-lib${NC}           - Build only the C library"
-	@echo -e "  ${GREEN}rust-lib${NC}        - Build only the Rust library"
 	@echo -e "  ${GREEN}python${NC}          - Build Python bindings"
 	@echo -e "  ${GREEN}nodejs${NC}          - Build NodeJS bindings"
-	@echo -e "  ${GREEN}examples${NC}        - Build example programs"
-	@echo -e "  ${GREEN}tests${NC}           - Run all tests"
+	@echo -e "  ${GREEN}examples${NC}        - Build and run Rust examples"
+	@echo -e "  ${GREEN}tests${NC}           - Run Rust tests"
 	@echo -e "  ${GREEN}bench${NC}           - Run benchmarks"
 	@echo -e "  ${GREEN}docs${NC}            - Build documentation"
 	@echo -e "  ${GREEN}install${NC}         - Install libraries"
 	@echo -e "  ${GREEN}clean${NC}           - Clean all build files"
 	@echo -e "  ${GREEN}help${NC}            - Display this help message"
-	@echo -e "  ${GREEN}fix-warnings${NC}    - Fix common build warnings"
-	@echo -e "  ${GREEN}troubleshoot${NC}    - Display troubleshooting information"
 	@echo -e ""
 	@echo -e "Developer targets:"
-	@echo -e "  ${GREEN}dev${NC}             - Run format, lint, and analyze"
-	@echo -e "  ${GREEN}format${NC}          - Format C and Rust code"
-	@echo -e "  ${GREEN}lint${NC}            - Lint C and Rust code"
-	@echo -e "  ${GREEN}analyze${NC}         - Run static analysis on C code"
+	@echo -e "  ${GREEN}dev${NC}             - Run format and lint"
+	@echo -e "  ${GREEN}format${NC}          - Format Rust code"
+	@echo -e "  ${GREEN}lint${NC}            - Lint Rust code with clippy"
 	@echo -e "  ${GREEN}dev-deps${NC}        - Install development dependencies"
 	@echo -e ""
 	@echo -e "Configuration options:"
@@ -269,17 +256,11 @@ troubleshoot:
 
 # Developer tools
 .PHONY: dev
-dev: format lint analyze
+dev: format lint
 
 .PHONY: format
 format:
 	@echo -e "${BLUE}Formatting code...${NC}"
-	@if command -v clang-format > /dev/null; then \
-		find src include examples -name "*.c" -o -name "*.h" | xargs clang-format -i -style=file; \
-		echo -e "${GREEN}C/C++ code formatted${NC}"; \
-	else \
-		echo -e "${YELLOW}clang-format not found, skipping C/C++ formatting${NC}"; \
-	fi
 	@if [ -n "$(CARGO)" ]; then \
 		$(CARGO) fmt; \
 		echo -e "${GREEN}Rust code formatted${NC}"; \
@@ -290,12 +271,6 @@ format:
 .PHONY: lint
 lint:
 	@echo -e "${BLUE}Linting code...${NC}"
-	@if command -v cppcheck > /dev/null; then \
-		cppcheck --enable=all --suppressions-list=.cppcheck-suppressions --error-exitcode=0 src include examples; \
-		echo -e "${GREEN}C/C++ code linted${NC}"; \
-	else \
-		echo -e "${YELLOW}cppcheck not found, skipping C/C++ linting${NC}"; \
-	fi
 	@if [ -n "$(CARGO)" ]; then \
 		$(CARGO) clippy; \
 		echo -e "${GREEN}Rust code linted${NC}"; \
@@ -303,33 +278,9 @@ lint:
 		echo -e "${YELLOW}Cargo not found, skipping Rust linting${NC}"; \
 	fi
 
-.PHONY: analyze
-analyze:
-	@echo -e "${BLUE}Analyzing code...${NC}"
-	@if command -v scan-build > /dev/null; then \
-		scan-build -o analysis-reports cmake --build $(BUILD_DIR); \
-		echo -e "${GREEN}Static analysis completed. See analysis-reports directory for results.${NC}"; \
-	else \
-		echo -e "${YELLOW}scan-build not found, skipping static analysis${NC}"; \
-	fi
-
 .PHONY: dev-deps
 dev-deps:
 	@echo -e "${BLUE}Installing development dependencies...${NC}"
-	@if command -v apt-get > /dev/null; then \
-		sudo apt-get update && sudo apt-get install -y clang-format cppcheck clang-tools llvm; \
-	elif command -v dnf > /dev/null; then \
-		sudo dnf install -y clang-tools-extra cppcheck; \
-	elif command -v pacman > /dev/null; then \
-		sudo pacman -S --needed clang cppcheck; \
-	elif command -v brew > /dev/null; then \
-		brew install llvm cppcheck; \
-	else \
-		echo -e "${YELLOW}Could not detect package manager, please install manually:${NC}"; \
-		echo "- clang-format (for code formatting)"; \
-		echo "- cppcheck (for static analysis)"; \
-		echo "- clang tools (for static analysis)"; \
-	fi
 	@if [ -n "$(CARGO)" ]; then \
 		rustup component add clippy rustfmt; \
 		echo -e "${GREEN}Rust development tools installed${NC}"; \

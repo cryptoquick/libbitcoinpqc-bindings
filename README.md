@@ -1,6 +1,6 @@
-# libbitcoinpqc
+# libbitcoinpqc-bindings
 
-A C library, with Rust bindings, for Post-Quantum Cryptographic (PQC) signature algorithms. This library implements two NIST PQC standard signature algorithms for use with [BIP-360](https://github.com/cryptoquick/bips/blob/p2qrh/bip-0360.mediawiki) and the Bitcoin QuBit soft fork:
+Language bindings (Rust, Python, Node.js) for the [libbitcoinpqc](https://github.com/jbride/libbitcoinpqc) C library. The C library implements two NIST PQC standard signature algorithms for use with [BIP-360](https://github.com/cryptoquick/bips/blob/p2qrh/bip-0360.mediawiki) and the Bitcoin QuBit soft fork:
 
 1. **ML-DSA-44** (formerly CRYSTALS-Dilithium): A structured lattice-based digital signature scheme that is part of the NIST PQC standardization.
 2. **SLH-DSA-Shake-128s** (formerly SPHINCS+): A stateless hash-based signature scheme with minimal security assumptions.
@@ -48,35 +48,32 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Dependencies
 
-Cryptographic dependencies included in this project:
+The C library is included via a git subtree from [libbitcoinpqc](https://github.com/jbride/libbitcoinpqc) at `libbitcoinpqc/`. To pull upstream changes:
 
-- https://github.com/sphincs/sphincsplus - `7ec789ace6874d875f4bb84cb61b81155398167e`
-- https://github.com/pq-crystals/dilithium - `444cdcc84eb36b66fe27b3a2529ee48f6d8150c2`
+```bash
+git subtree pull --prefix=libbitcoinpqc https://github.com/jbride/libbitcoinpqc.git binding_segregation --squash
+```
 
-## Building the Library
+## Building
 
 ### Prerequisites
 
 - CMake 3.10 or higher
 - C99 compiler
-- Rust 1.50 or higher (for Rust bindings)
+- Rust 1.50 or higher
 
 ### Building
 
 ```bash
 # Clone the repository
-git clone https://github.com/bitcoin/libbitcoinpqc.git
-cd libbitcoinpqc
+git clone https://github.com/jbride/libbitcoinpqc-bindings.git
+cd libbitcoinpqc-bindings
 
-# Build the C library using CMake
-mkdir build
-cd build
-cmake ..
-make
-
-# Build the Rust library and bindings
-cd ..
+# Build the Rust bindings (automatically builds the C library from the subtree)
 cargo build --release
+
+# Or use the Makefile
+make rust-lib
 ```
 
 ## Fuzz Testing
