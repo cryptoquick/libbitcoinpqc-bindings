@@ -143,19 +143,13 @@ npm test
 
 Or run them individually:
 ```bash
-npm run test:high-level  # High-level API test
+npm run test:high-level   # High-level API test
 npm run test:low-level    # Low-level API test
 ```
 
-### 5.2. High-Level API Test (`test/test-npm-package.js`)
+### 5.2. Details of High-Level API Test (`test/test-npm-package.js`)
 
 Tests the TypeScript wrapper API (`dist/index.js`) which provides a clean, high-level interface:
-
-```bash
-node test/test-npm-package.js
-# or
-npm run test:high-level
-```
 
 This test demonstrates:
 - Using the `bitcoinpqc` singleton instance
@@ -163,15 +157,9 @@ This test demonstrates:
 - Automatic memory management (no manual `malloc`/`free`)
 - Clean API with methods like `generateKeypair()`, `sign()`, and `verify()`
 
-### 5.3. Low-Level API Test (`test/test-raw-wasm.js`)
+### 5.3. Details of Low-Level API Test (`test/test-raw-wasm.js`)
 
 Tests the raw Emscripten-generated module (`dist/bitcoinpqc.js`) which provides direct access to the WASM functions:
-
-```bash
-node test/test-raw-wasm.js
-# or
-npm run test:low-level
-```
 
 This test demonstrates:
 - Direct use of `Module.ccall()` for calling WASM functions
@@ -185,9 +173,7 @@ Render index.html in a webserver:
 
 > cd wasm; python3 -m http.server 8000
 
-
 The page allows you to:
 - Select between low-level and high-level APIs
 - Test both ML-DSA-44 and SLH-DSA-Shake-128s algorithms
 - See performance metrics and test results
-k

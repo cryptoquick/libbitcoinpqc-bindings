@@ -1,6 +1,6 @@
 [package]
 name = "bitcoinpqc"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2021"
 authors = ["Hunter Beast <hunter@surmount.systems>"]
 description = "Post-Quantum Cryptographic signature algorithms for Bitcoin (BIP-360)"
