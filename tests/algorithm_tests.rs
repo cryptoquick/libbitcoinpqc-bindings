@@ -1,8 +1,16 @@
+#[path = "vectors/slh_dsa_sha2_golden_vectors.rs"]
+mod golden_vectors;
+
 use hex::decode as hex_decode;
 use rand::{rng, RngCore};
 
 use bitcoinpqc::{
-    generate_keypair, public_key_size, secret_key_size, sign, signature_size, verify, Algorithm,
+    algorithm_from_index, generate_keypair, public_key_size, secret_key_size, sign, signature_size,
+    verify, Algorithm, SUPPORTED_ALGORITHM_COUNT,
+};
+use golden_vectors::{
+    SLH_DSA_SHA2_EXPECTED_PK, SLH_DSA_SHA2_EXPECTED_SIG, SLH_DSA_SHA2_TEST_ENTROPY,
+    SLH_DSA_SHA2_TEST_MESSAGE,
 };
 
 // Original random data generation function (commented out for deterministic tests)
@@ -22,7 +30,7 @@ fn get_random_bytes(size: usize) -> Vec<u8> {
             // ML-DSA-44 key generation test vector
             let ml_dsa_keygen_data = "20739d89b87379e83a915a0764366ed1e72eb307b3c7846dc135933370f00b266277961d536b47026f7eb874603384e3a2b9ea51f033aa4257acd17606d2cd86bc6c2a6745d59dcc148d5a8776be46e127e3ccf57212bd0eef8085aa871cc40b91693fd9a79034504f639cea0e618509afd84d943b3928524becc473c3fa3c2a";
 
-            // SLH-DSA-128S key generation test vector
+            // SLH-DSA-SHA2-128S key generation test vector
             let slh_dsa_keygen_data = "dd348981dfba96c006d27d64ad0ae37c9a358e3a03df7e9ffac1519eca12dc3b64bea0144f3536a74d9caba846b7143788e89a2a279a81947364f422d491dcb47925a77be4d551b25a81070e6a460effe30939224240e4f4dc9470d3d99f7312c24523a28128ea448ef47bcc1b0ae637ad6ece2251d3e2d55c0bba6d346ca66b";
 
             // Deterministic signing test vectors
@@ -30,7 +38,7 @@ fn get_random_bytes(size: usize) -> Vec<u8> {
             // ML-DSA-44 deterministic signing test vector
             let ml_dsa_det_data = "12187a59a14e1e9a0c37fc7625a0d3f8782f1e4cd361751abf7b85745173488e3e19afd47cbd4a823577cb360aed406791558ea1ff217fcd38af566e0e5d4d0903e6ea9c29108393c1a423f41b876b43ce0856ee436866f98d56ec8ceb169ed0470d847608f295474002a91a54937a64ac236fb9cf49fedf60b76500e3c0a7f0";
 
-            // SLH-DSA-128S deterministic signing test vector
+            // SLH-DSA-SHA2-128S deterministic signing test vector
             let slh_dsa_det_data = "8ca905fd3e122d02e411683b52ecb1863104793aeba57718aabc9a65db5d61a66ca4bd29376d8118ceb555868b7054b59e23a45538d4ca28ad2080f70c56cce85f1fd5568661cb6ac06a9296ae77d97a7b854dab7eda10a4b78dd3a8f2e741f5c4686278eda9a1ac255a0cdbc79081435161331b69f9cbc04e7ae50cbfbab0ec";
 
             // Choose which data to return based on the test context
@@ -39,7 +47,7 @@ fn get_random_bytes(size: usize) -> Vec<u8> {
 
             let hex_data = if test_name.contains("ml_dsa_44") {
                 ml_dsa_keygen_data
-            } else if test_name.contains("slh_dsa_128s") {
+            } else if test_name.contains("slh_dsa_sha2_128s") {
                 slh_dsa_keygen_data
             } else if test_name.contains("deterministic_signing") {
                 // Choose based on current test progress
@@ -65,7 +73,7 @@ fn get_random_bytes(size: usize) -> Vec<u8> {
             // ML-DSA-44 signing test vector
             let ml_dsa_sign_data = "8fe682ed84da0fdfa9243c424c864b1d9137c0c87bc8f23dbea9268f3930c8a3778139311c18dadd6a9aea791486f2d7638a7be8f09ca3546580312a8bb95f97";
 
-            // SLH-DSA-128S signing test vector
+            // SLH-DSA-SHA2-128S signing test vector
             let slh_dsa_sign_data = "c2dd94eec866f66b5fe8cbc07cfdbc8b4b92880f4fe53131feb1539323e87f64d3b32fd22375ead15c6c0f5c68323ed343041acfd3d962382b406e9aa30aa45c";
 
             // Choose which data to return based on the test context
@@ -74,7 +82,7 @@ fn get_random_bytes(size: usize) -> Vec<u8> {
 
             let hex_data = if test_name.contains("ml_dsa_44") {
                 ml_dsa_sign_data
-            } else if test_name.contains("slh_dsa_128s") {
+            } else if test_name.contains("slh_dsa_sha2_128s") {
                 slh_dsa_sign_data
             } else {
                 // Default to ML-DSA data
@@ -94,15 +102,30 @@ fn get_random_bytes(size: usize) -> Vec<u8> {
 }
 
 #[test]
+fn test_algorithm_from_index_mapping() {
+    assert_eq!(SUPPORTED_ALGORITHM_COUNT, 3);
+
+    assert_eq!(algorithm_from_index(0), Algorithm::SECP256K1_SCHNORR);
+    assert_eq!(algorithm_from_index(1), Algorithm::ML_DSA_44);
+    assert_eq!(algorithm_from_index(2), Algorithm::SLH_DSA_SHA2_128S);
+
+    // Wraps modulo SUPPORTED_ALGORITHM_COUNT
+    assert_eq!(algorithm_from_index(3), Algorithm::SECP256K1_SCHNORR);
+    assert_eq!(algorithm_from_index(4), Algorithm::ML_DSA_44);
+    assert_eq!(algorithm_from_index(5), Algorithm::SLH_DSA_SHA2_128S);
+    assert_eq!(algorithm_from_index(255), Algorithm::SECP256K1_SCHNORR);
+}
+
+#[test]
 fn test_key_sizes() {
     // Verify the key and signature sizes are as expected
     assert_eq!(public_key_size(Algorithm::ML_DSA_44), 1312);
     assert_eq!(secret_key_size(Algorithm::ML_DSA_44), 2560);
     assert_eq!(signature_size(Algorithm::ML_DSA_44), 2420);
 
-    assert_eq!(public_key_size(Algorithm::SLH_DSA_128S), 32);
-    assert_eq!(secret_key_size(Algorithm::SLH_DSA_128S), 64);
-    assert_eq!(signature_size(Algorithm::SLH_DSA_128S), 7856);
+    assert_eq!(public_key_size(Algorithm::SLH_DSA_SHA2_128S), 32);
+    assert_eq!(secret_key_size(Algorithm::SLH_DSA_SHA2_128S), 64);
+    assert_eq!(signature_size(Algorithm::SLH_DSA_SHA2_128S), 7856);
 }
 
 #[test]
@@ -165,34 +188,35 @@ fn test_ml_dsa_44_keygen_sign_verify() {
 }
 
 #[test]
-fn test_slh_dsa_128s_keygen_sign_verify() {
-    println!("Starting SLH-DSA-128S test");
+fn test_slh_dsa_sha2_128s_keygen_sign_verify() {
+    println!("Starting SLH-DSA-SHA2-128S test");
     let random_data = get_random_bytes(128);
     println!("Generated random data of size {}", random_data.len());
 
-    let keypair = generate_keypair(Algorithm::SLH_DSA_128S, &random_data)
-        .expect("Failed to generate SLH-DSA-128S keypair");
+    let keypair = generate_keypair(Algorithm::SLH_DSA_SHA2_128S, &random_data)
+        .expect("Failed to generate SLH-DSA-SHA2-128S keypair");
 
     println!("Key generation successful");
 
     // Verify the key sizes match expected values
     assert_eq!(
         keypair.public_key.bytes.len(),
-        public_key_size(Algorithm::SLH_DSA_128S)
+        public_key_size(Algorithm::SLH_DSA_SHA2_128S)
     );
     println!("Public key size: {}", keypair.public_key.bytes.len());
 
     assert_eq!(
         keypair.secret_key.bytes.len(),
-        secret_key_size(Algorithm::SLH_DSA_128S)
+        secret_key_size(Algorithm::SLH_DSA_SHA2_128S)
     );
     println!("Secret key size: {}", keypair.secret_key.bytes.len());
 
     // Test signing and verification
-    let message = b"SLH-DSA-128S Test Message";
+    let message = b"SLH-DSA-SHA2-128S Test Message";
     println!("Message to sign: {message:?}");
 
-    let signature = sign(&keypair.secret_key, message).expect("Failed to sign with SLH-DSA-128S");
+    let signature =
+        sign(&keypair.secret_key, message).expect("Failed to sign with SLH-DSA-SHA2-128S");
 
     println!(
         "Signature created successfully, size: {}",
@@ -208,10 +232,13 @@ fn test_slh_dsa_128s_keygen_sign_verify() {
     let result = verify(&keypair.public_key, message, &signature);
     println!("Verification result: {result:?}");
 
-    assert!(result.is_ok(), "SLH-DSA-128S signature verification failed");
+    assert!(
+        result.is_ok(),
+        "SLH-DSA-SHA2-128S signature verification failed"
+    );
 
     // Try to verify with a modified message - should fail
-    let modified_message = b"SLH-DSA-128S Modified Message";
+    let modified_message = b"SLH-DSA-SHA2-128S Modified Message";
     println!("Modified message: {modified_message:?}");
 
     let result = verify(&keypair.public_key, modified_message, &signature);
@@ -219,7 +246,7 @@ fn test_slh_dsa_128s_keygen_sign_verify() {
 
     assert!(
         result.is_err(),
-        "SLH-DSA-128S verification should fail with modified message"
+        "SLH-DSA-SHA2-128S verification should fail with modified message"
     );
 }
 
@@ -246,10 +273,10 @@ fn test_deterministic_signing() {
         "Second ML-DSA-44 signature should be valid"
     );
 
-    // Test SLH-DSA-128S deterministic signing
+    // Test SLH-DSA-SHA2-128S deterministic signing
     let random_data = get_random_bytes(128);
-    let keypair = generate_keypair(Algorithm::SLH_DSA_128S, &random_data)
-        .expect("Failed to generate SLH-DSA-128S keypair");
+    let keypair = generate_keypair(Algorithm::SLH_DSA_SHA2_128S, &random_data)
+        .expect("Failed to generate SLH-DSA-SHA2-128S keypair");
     let message = b"Test message for deterministic signing";
 
     // Generate first signature
@@ -260,11 +287,11 @@ fn test_deterministic_signing() {
     // Verify both signatures
     assert!(
         verify(&keypair.public_key, message, &signature1).is_ok(),
-        "First SLH-DSA-128S signature should be valid"
+        "First SLH-DSA-SHA2-128S signature should be valid"
     );
     assert!(
         verify(&keypair.public_key, message, &signature2).is_ok(),
-        "Second SLH-DSA-128S signature should be valid"
+        "Second SLH-DSA-SHA2-128S signature should be valid"
     );
 }
 
@@ -280,37 +307,59 @@ fn test_error_conditions() {
         "ML-DSA-44 should fail with insufficient random data"
     );
 
-    // Test SLH-DSA-128S
-    let result = generate_keypair(Algorithm::SLH_DSA_128S, &short_random);
+    // Test SLH-DSA-SHA2-128S
+    let result = generate_keypair(Algorithm::SLH_DSA_SHA2_128S, &short_random);
     assert!(
         result.is_err(),
-        "SLH-DSA-128S should fail with insufficient random data"
+        "SLH-DSA-SHA2-128S should fail with insufficient random data"
     );
 
     // Create valid keypairs for ML-DSA and SLH-DSA
     let random_data = get_random_bytes(128);
     let ml_keypair = generate_keypair(Algorithm::ML_DSA_44, &random_data)
         .expect("Failed to generate ML-DSA-44 keypair");
-    let slh_keypair = generate_keypair(Algorithm::SLH_DSA_128S, &random_data)
-        .expect("Failed to generate SLH-DSA-128S keypair");
+    let slh_keypair = generate_keypair(Algorithm::SLH_DSA_SHA2_128S, &random_data)
+        .expect("Failed to generate SLH-DSA-SHA2-128S keypair");
 
     // Create message for testing
     let message = b"Test message";
 
     // Create signatures
     let ml_sig = sign(&ml_keypair.secret_key, message).expect("Failed to sign with ML-DSA-44");
-    let slh_sig = sign(&slh_keypair.secret_key, message).expect("Failed to sign with SLH-DSA-128S");
+    let slh_sig =
+        sign(&slh_keypair.secret_key, message).expect("Failed to sign with SLH-DSA-SHA2-128S");
 
     // Try to verify with mismatched algorithms
     let result = verify(&slh_keypair.public_key, message, &ml_sig);
     assert!(
         result.is_err(),
-        "Verification should fail with ML-DSA-44 signature and SLH-DSA-128S key"
+        "Verification should fail with ML-DSA-44 signature and SLH-DSA-SHA2-128S key"
     );
 
     let result = verify(&ml_keypair.public_key, message, &slh_sig);
     assert!(
         result.is_err(),
-        "Verification should fail with SLH-DSA-128S signature and ML-DSA-44 key"
+        "Verification should fail with SLH-DSA-SHA2-128S signature and ML-DSA-44 key"
+    );
+}
+
+#[test]
+fn test_slh_dsa_sha2_128s_golden_vectors() {
+    let keypair = generate_keypair(Algorithm::SLH_DSA_SHA2_128S, SLH_DSA_SHA2_TEST_ENTROPY)
+        .expect("Failed to generate SLH-DSA-SHA2-128S keypair from golden entropy");
+
+    assert_eq!(
+        keypair.public_key.bytes.as_slice(),
+        SLH_DSA_SHA2_EXPECTED_PK
+    );
+
+    let signature = sign(&keypair.secret_key, SLH_DSA_SHA2_TEST_MESSAGE)
+        .expect("Failed to sign golden test message");
+
+    assert_eq!(signature.bytes.as_slice(), SLH_DSA_SHA2_EXPECTED_SIG);
+
+    assert!(
+        verify(&keypair.public_key, SLH_DSA_SHA2_TEST_MESSAGE, &signature).is_ok(),
+        "Golden SLH-DSA-SHA2-128S signature should verify"
     );
 }

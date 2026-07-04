@@ -14,7 +14,9 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Install dependencies
         run: |
@@ -41,6 +43,13 @@ jobs:
       - name: Run tests
         run: cargo test --verbose
 
+      - name: Run serde tests
+        run: cargo test --features serde --verbose
+
+      - name: Check fuzz workspace
+        run: cargo check
+        working-directory: fuzz
+
   build-matrix:
     name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
@@ -51,7 +60,9 @@ jobs:
         rust: [stable]
       fail-fast: false
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Install dependencies (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
@@ -85,13 +96,104 @@ jobs:
       - name: Run tests
         run: cargo test --verbose
 
+      - name: Run serde tests
+        run: cargo test --features serde --verbose
+
+  c-lib-test:
+    name: C Library Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake libssl-dev
+
+      - name: Cache CMake build
+        uses: actions/cache@v4
+        with:
+          path: build
+          key: c-lib-test-${{ runner.os }}-${{ hashFiles('libbitcoinpqc/**') }}
+          restore-keys: |
+            c-lib-test-${{ runner.os }}-
+
+      - name: Configure and build C library
+        run: |
+          cmake -B build -S libbitcoinpqc -DBUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release
+          cmake --build build
+
+      - name: Run C tests
+        run: ctest --test-dir build --output-on-failure
+
+  python-test:
+    name: Python Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake libssl-dev
+
+      - name: Cache CMake build
+        uses: actions/cache@v4
+        with:
+          path: build
+          key: python-test-${{ runner.os }}-${{ hashFiles('libbitcoinpqc/**') }}
+          restore-keys: |
+            python-test-${{ runner.os }}-
+
+      - name: Build C library
+        run: |
+          cmake -B build -S libbitcoinpqc -DCMAKE_BUILD_TYPE=Release
+          cmake --build build
+
+      - name: Run Python tests
+        run: python3 -m unittest discover -s tests -v
+        working-directory: python
+
+  nodejs-test:
+    name: NodeJS Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake python3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: nodejs/package-lock.json
+
+      - name: Install, build, and test
+        run: |
+          npm ci --ignore-scripts
+          npm run build
+          npm test
+        working-directory: nodejs
+
   # benchmark:
   #   name: Benchmark
   #   runs-on: ubuntu-latest
   #   needs: test
   #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
   #   steps:
-  #     - uses: actions/checkout@v3
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         submodules: recursive
 
   #     - name: Install dependencies
   #       run: |

@@ -124,8 +124,8 @@ pub enum Algorithm {
     SECP256K1_SCHNORR,
     /// ML-DSA-44 (CRYSTALS-Dilithium) - Lattice-based signature scheme
     ML_DSA_44,
-    /// SLH-DSA-Shake-128s (SPHINCS+) - Hash-based signature scheme
-    SLH_DSA_128S,
+    /// SLH-DSA-SHA2-128s (SPHINCS+) - Hash-based signature scheme
+    SLH_DSA_SHA2_128S,
 }
 
 impl From<Algorithm> for bitcoin_pqc_algorithm_t {
@@ -133,7 +133,7 @@ impl From<Algorithm> for bitcoin_pqc_algorithm_t {
         match alg {
             Algorithm::SECP256K1_SCHNORR => bitcoin_pqc_algorithm_t::BITCOIN_PQC_SECP256K1_SCHNORR,
             Algorithm::ML_DSA_44 => bitcoin_pqc_algorithm_t::BITCOIN_PQC_ML_DSA_44,
-            Algorithm::SLH_DSA_128S => bitcoin_pqc_algorithm_t::BITCOIN_PQC_SLH_DSA_SHAKE_128S,
+            Algorithm::SLH_DSA_SHA2_128S => bitcoin_pqc_algorithm_t::BITCOIN_PQC_SLH_DSA_SHA2_128S,
             _ => panic!("Invalid algorithm"),
         }
     }
@@ -148,7 +148,7 @@ impl TryFrom<String> for Algorithm {
         match s.as_str() {
             "SECP256K1_SCHNORR" => Ok(Algorithm::SECP256K1_SCHNORR),
             "ML_DSA_44" => Ok(Algorithm::ML_DSA_44),
-            "SLH_DSA_128S" => Ok(Algorithm::SLH_DSA_128S),
+            "SLH_DSA_SHA2_128S" => Ok(Algorithm::SLH_DSA_SHA2_128S),
             _ => Err(format!("Unknown algorithm string: {s}")),
         }
     }
@@ -160,7 +160,7 @@ impl From<Algorithm> for String {
         match alg {
             Algorithm::SECP256K1_SCHNORR => "SECP256K1_SCHNORR".to_string(),
             Algorithm::ML_DSA_44 => "ML_DSA_44".to_string(),
-            Algorithm::SLH_DSA_128S => "SLH_DSA_128S".to_string(),
+            Algorithm::SLH_DSA_SHA2_128S => "SLH_DSA_SHA2_128S".to_string(),
             _ => panic!("Invalid algorithm variant"), // Should not happen with bitmask
         }
     }
@@ -171,7 +171,7 @@ impl fmt::Display for Algorithm {
         match *self {
             Algorithm::SECP256K1_SCHNORR => write!(f, "SECP256K1_SCHNORR"),
             Algorithm::ML_DSA_44 => write!(f, "ML_DSA_44"),
-            Algorithm::SLH_DSA_128S => write!(f, "SLH_DSA_128S"),
+            Algorithm::SLH_DSA_SHA2_128S => write!(f, "SLH_DSA_SHA2_128S"),
             _ => write!(f, "Unknown({:b})", self.bits),
         }
     }
@@ -183,7 +183,7 @@ impl Algorithm {
         match *self {
             Algorithm::SECP256K1_SCHNORR => "SECP256K1_SCHNORR".to_string(),
             Algorithm::ML_DSA_44 => "ML_DSA_44".to_string(),
-            Algorithm::SLH_DSA_128S => "SLH_DSA_128S".to_string(),
+            Algorithm::SLH_DSA_SHA2_128S => "SLH_DSA_SHA2_128S".to_string(),
             _ => format!("Unknown({:b})", self.bits),
         }
     }
@@ -193,7 +193,6 @@ impl Algorithm {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct PublicKey {
     /// The algorithm this key belongs to
-    #[cfg_attr(feature = "serde", serde(flatten))]
     pub algorithm: Algorithm,
     /// The raw key bytes (serialized as hex)
     #[cfg_attr(feature = "serde", serde(with = "hex_bytes"))]
@@ -244,7 +243,6 @@ impl PublicKey {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct SecretKey {
     /// The algorithm this key belongs to
-    #[cfg_attr(feature = "serde", serde(flatten))]
     pub algorithm: Algorithm,
     /// The raw key bytes (serialized as hex)
     #[cfg_attr(feature = "serde", serde(with = "hex_bytes"))]
@@ -306,7 +304,6 @@ impl Drop for SecretKey {
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Signature {
     /// The algorithm this signature belongs to
-    #[cfg_attr(feature = "serde", serde(flatten))]
     pub algorithm: Algorithm,
     /// The raw signature bytes (serialized as hex)
     #[cfg_attr(feature = "serde", serde(with = "hex_bytes"))]
@@ -660,6 +657,23 @@ pub fn public_key_size(algorithm: Algorithm) -> usize {
         32 // XOnlyPublicKey size
     } else {
         unsafe { bitcoin_pqc_public_key_size(algorithm.into()) }
+    }
+}
+
+/// Number of algorithms supported by [`algorithm_from_index`].
+pub const SUPPORTED_ALGORITHM_COUNT: u8 = 3;
+
+/// Map an arbitrary index to a supported algorithm.
+///
+/// Used by fuzz targets to select algorithms from raw input bytes:
+/// 0 → SECP256K1_SCHNORR, 1 → ML_DSA_44, 2 → SLH_DSA_SHA2_128S.
+#[doc(hidden)]
+pub fn algorithm_from_index(index: u8) -> Algorithm {
+    match index % SUPPORTED_ALGORITHM_COUNT {
+        0 => Algorithm::SECP256K1_SCHNORR,
+        1 => Algorithm::ML_DSA_44,
+        2 => Algorithm::SLH_DSA_SHA2_128S,
+        _ => unreachable!(),
     }
 }
 

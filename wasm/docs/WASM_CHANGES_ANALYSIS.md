@@ -70,7 +70,7 @@ Some functions use large fixed-size arrays that must be moved to heap.
 - **`sphincsplus/ref/fors.c`**: 
   - `indices` and `roots` arrays moved to heap for WASM
 
-- **`sphincsplus/ref/hash_shake.c`**:
+- **`sphincsplus/ref/hash_sha2.c`** (historical note: previously `hash_shake.c` before SHA2-128s migration):
   - `s_inc` and `buf` arrays moved to heap for WASM
 
 - **`sphincsplus/ref/merkle.c`**:
@@ -79,7 +79,7 @@ Some functions use large fixed-size arrays that must be moved to heap.
 - **`sphincsplus/ref/wotsx1.c`**:
   - `pk_buffer` moved to heap for WASM
 
-- **`sphincsplus/ref/thash_shake_robust.c`** and **`thash_shake_simple.c`**:
+- **`sphincsplus/ref/thash_sha2_simple.c`** (historical note: previously `thash_shake_simple.c`):
   - Added `SPX_VLA_FREE` calls
   - **Cannot be removed** - memory leak prevention
 

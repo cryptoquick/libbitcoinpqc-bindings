@@ -55,10 +55,10 @@ class MockBitcoinPqcNative implements BitcoinPqcNative {
     },
     [Algorithm.ML_DSA_44]: {
       publicKey: 1312,
-      secretKey: 2528,
+      secretKey: 2560,
       signature: 2420,
     },
-    [Algorithm.SLH_DSA_SHAKE_128S]: {
+    [Algorithm.SLH_DSA_SHA2_128S]: {
       publicKey: 32,
       secretKey: 64,
       signature: 7856,

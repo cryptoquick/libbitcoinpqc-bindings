@@ -5,7 +5,7 @@ WebAssembly build of the Bitcoin PQC (Post-Quantum Cryptography) library for bro
 ## 1. Features
 
 - ✅ **ML-DSA-44** (Dilithium) - Fast post-quantum signatures
-- ✅ **SLH-DSA-Shake-128s** (SPHINCS+) - Stateless hash-based signatures
+- ✅ **SLH-DSA-SHA2-128s** (SPHINCS+) - Stateless hash-based signatures
 - ✅ **High-level API** - TypeScript class with keygen, sign, and verify methods
 - ✅ **Low-level API** - Direct WASM `ccall`/`cwrap` access for advanced usage
 - ✅ **Browser support** - Works in modern browsers with WebAssembly
@@ -18,6 +18,12 @@ WebAssembly build of the Bitcoin PQC (Post-Quantum Cryptography) library for bro
 npm install @jbride/bitcoinpqc-wasm
 ```
 
+## Breaking Changes (Phase 2)
+
+- Rename `SLH_DSA_SHAKE_128S` → `SLH_DSA_SHA2_128S` (enum wire value `2` unchanged)
+- WASM build now uses SHA2 SPHINCS+ sources (`hash_sha2.c`, `thash_sha2_simple.c`, `sha2.c`)
+- **Re-keying required:** SHAKE-128s keys/signatures are incompatible with SHA2-128s
+
 ## 3. API Reference
 
 This section documents the **high-level TypeScript/JavaScript API** (`dist/index.js`), which provides a clean, type-safe interface with automatic memory management. For direct access to the underlying WebAssembly module (low-level API), see the [Low-Level API Test](#low-level-api-test-testtest-raw-wasmjs) section below.
@@ -27,7 +33,7 @@ This section documents the **high-level TypeScript/JavaScript API** (`dist/index
 ```typescript
 enum Algorithm {
     ML_DSA_44 = 1,           // Dilithium (recommended for most use cases)
-    SLH_DSA_SHAKE_128S = 2   // SPHINCS+ (stateless hash-based)
+    SLH_DSA_SHA2_128S = 2   // SPHINCS+ (stateless hash-based)
 }
 ```
 
@@ -39,7 +45,7 @@ publicKeySize: 1312 bytes
 secretKeySize: 2560 bytes
 signatureSize: 2420 bytes
 
-// SLH-DSA-Shake-128s
+// SLH-DSA-SHA2-128s
 publicKeySize: 32 bytes
 secretKeySize: 64 bytes
 signatureSize: 7856 bytes
@@ -175,5 +181,5 @@ Render index.html in a webserver:
 
 The page allows you to:
 - Select between low-level and high-level APIs
-- Test both ML-DSA-44 and SLH-DSA-Shake-128s algorithms
+- Test both ML-DSA-44 and SLH-DSA-SHA2-128s algorithms
 - See performance metrics and test results

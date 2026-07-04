@@ -177,8 +177,8 @@
             <button id="testMlDsa" onclick="testAlgorithm(1, 'ML-DSA-44')" disabled>
                 Test ML-DSA-44
             </button>
-            <button id="testSlhDsa" onclick="testAlgorithm(2, 'SLH-DSA-Shake-128s')" disabled>
-                Test SLH-DSA-Shake-128s
+            <button id="testSlhDsa" onclick="testAlgorithm(2, 'SLH-DSA-SHA2-128s')" disabled>
+                Test SLH-DSA-SHA2-128s
             </button>
             <button id="testAll" onclick="testAllAlgorithms()" disabled class="secondary">
                 Test All Algorithms
@@ -558,7 +558,7 @@
         // Generate keypair - high-level API
         function generateKeypairHighLevel(algorithm, randomData) {
             // Convert algorithm number to enum
-            const algo = algorithm === 1 ? AlgorithmEnum.ML_DSA_44 : AlgorithmEnum.SLH_DSA_SHAKE_128S;
+            const algo = algorithm === 1 ? AlgorithmEnum.ML_DSA_44 : AlgorithmEnum.SLH_DSA_SHA2_128S;
             return highLevelModule.generateKeypair(algo, randomData);
         }
 
@@ -645,7 +645,7 @@
 
         // Sign a message - high-level API
         function signMessageHighLevel(algorithm, secretKey, message) {
-            const algo = algorithm === 1 ? AlgorithmEnum.ML_DSA_44 : AlgorithmEnum.SLH_DSA_SHAKE_128S;
+            const algo = algorithm === 1 ? AlgorithmEnum.ML_DSA_44 : AlgorithmEnum.SLH_DSA_SHA2_128S;
             return highLevelModule.sign(secretKey, message, algo);
         }
 
@@ -676,7 +676,7 @@
 
         // Verify a signature - high-level API
         function verifySignatureHighLevel(algorithm, publicKey, message, signature) {
-            const algo = algorithm === 1 ? AlgorithmEnum.ML_DSA_44 : AlgorithmEnum.SLH_DSA_SHAKE_128S;
+            const algo = algorithm === 1 ? AlgorithmEnum.ML_DSA_44 : AlgorithmEnum.SLH_DSA_SHA2_128S;
 
             // High-level API expects signature object with bytes property
             const sigObj = signature.bytes ? signature : { bytes: signature };
@@ -709,7 +709,7 @@
                     sigSize = sizes.sigSize;
                 } else {
                     // Use Algorithm enum directly
-                    const algo = algorithm === 1 ? AlgorithmEnum.ML_DSA_44 : AlgorithmEnum.SLH_DSA_SHAKE_128S;
+                    const algo = algorithm === 1 ? AlgorithmEnum.ML_DSA_44 : AlgorithmEnum.SLH_DSA_SHA2_128S;
                     pkSize = highLevelModule.publicKeySize(algo);
                     skSize = highLevelModule.secretKeySize(algo);
                     sigSize = highLevelModule.signatureSize(algo);
@@ -821,7 +821,7 @@
             output.textContent += `Using ${moduleType === 'lowlevel' ? 'Low-Level API' : 'High-Level API'}\n\n`;
 
             await testAlgorithm(1, 'ML-DSA-44');
-            await testAlgorithm(2, 'SLH-DSA-Shake-128s');
+            await testAlgorithm(2, 'SLH-DSA-SHA2-128s');
         }
     </script>
 </body>

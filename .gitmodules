@@ -1,0 +1,4 @@
+[submodule "libbitcoinpqc"]
+	path = libbitcoinpqc
+	url = https://github.com/cryptoquick/libbitcoinpqc.git
+	branch = 27-slh-dsa-sha-2-128s

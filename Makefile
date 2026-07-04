@@ -53,14 +53,14 @@ bindings: python nodejs
 info:
 	@echo -e "${BLUE}libbitcoinpqc-bindings - Language Bindings for libbitcoinpqc${NC}"
 	@echo -e "${BLUE}------------------------------------------------------------${NC}"
-	@echo -e "${YELLOW}C library provided by git subtree at libbitcoinpqc/${NC}"
+	@echo -e "${YELLOW}C library provided by git submodule at libbitcoinpqc/${NC}"
 	@if [ -n "$(CMAKE)" ]; then echo -e "  [${GREEN}✓${NC}] CMake: $(CMAKE)"; else echo -e "  [${RED}✗${NC}] CMake (required for C library)"; fi
 	@if [ -n "$(CARGO)" ]; then echo -e "  [${GREEN}✓${NC}] Cargo: $(CARGO)"; else echo -e "  [${RED}✗${NC}] Cargo (required for Rust library)"; fi
 	@if [ -n "$(PYTHON)" ]; then echo -e "  [${GREEN}✓${NC}] Python: $(PYTHON)"; else echo -e "  [${YELLOW}!${NC}] Python (optional for Python bindings)"; fi
 	@if [ -n "$(NPM)" ]; then echo -e "  [${GREEN}✓${NC}] NPM: $(NPM)"; else echo -e "  [${YELLOW}!${NC}] NPM (optional for NodeJS bindings)"; fi
 	@echo -e "${BLUE}------------------------------------------------------------${NC}"
 	@echo -e "${YELLOW}Available make targets:${NC}"
-	@echo -e "  ${GREEN}make c-lib${NC}        - Build the C library (from subtree)"
+	@echo -e "  ${GREEN}make c-lib${NC}        - Build the C library (from submodule)"
 	@echo -e "  ${GREEN}make rust-lib${NC}     - Build the Rust bindings"
 	@echo -e "  ${GREEN}make bindings${NC}     - Build Python and NodeJS bindings"
 	@echo -e "  ${GREEN}make examples${NC}     - Build and run Rust examples"
@@ -68,12 +68,20 @@ info:
 	@echo -e "  ${GREEN}make help${NC}         - Show all available targets"
 	@echo -e "${BLUE}------------------------------------------------------------${NC}"
 
-# C library targets (built from libbitcoinpqc subtree)
+# C library targets (built from libbitcoinpqc submodule)
 .PHONY: c-lib
 c-lib: cmake-configure cmake-build
 
+.PHONY: submodule-check
+submodule-check:
+	@test -f libbitcoinpqc/CMakeLists.txt || { \
+		echo -e "${RED}libbitcoinpqc submodule not initialized.${NC}"; \
+		echo -e "${YELLOW}Run: git submodule update --init --recursive${NC}"; \
+		exit 1; \
+	}
+
 .PHONY: cmake-configure
-cmake-configure:
+cmake-configure: submodule-check
 	@echo -e "${BLUE}Configuring C library with CMake...${NC}"
 	@mkdir -p $(BUILD_DIR)
 	@cd $(BUILD_DIR) && cmake ../libbitcoinpqc -DCMAKE_BUILD_TYPE=$(if $(filter 1,$(DEBUG)),Debug,Release) -DCMAKE_INSTALL_PREFIX=$(PREFIX)
@@ -83,9 +91,16 @@ cmake-build:
 	@echo -e "${BLUE}Building C library...${NC}"
 	@cmake --build $(BUILD_DIR) $(if $(filter 1,$(VERBOSE)),--verbose,)
 
+.PHONY: c-lib-test
+c-lib-test:
+	@echo -e "${BLUE}Building and testing C library (golden vectors)...${NC}"
+	@cmake -B $(BUILD_DIR) -S libbitcoinpqc -DBUILD_TESTS=ON -DCMAKE_BUILD_TYPE=$(if $(filter 1,$(DEBUG)),Debug,Release)
+	@cmake --build $(BUILD_DIR) $(if $(filter 1,$(VERBOSE)),--verbose,)
+	@ctest --test-dir $(BUILD_DIR) --output-on-failure
+
 # Rust library targets
 .PHONY: rust-lib
-rust-lib:
+rust-lib: submodule-check
 	@echo -e "${BLUE}Building Rust library...${NC}"
 	@$(CARGO) build $(if $(filter 0,$(DEBUG)),--release,)
 
@@ -166,12 +181,17 @@ install-rust: rust-lib
 
 # Clean targets
 .PHONY: clean
-clean: clean-c clean-rust clean-bindings
+clean: clean-c clean-submodule clean-rust clean-bindings
 
 .PHONY: clean-c
 clean-c:
 	@echo -e "${BLUE}Cleaning C library build files...${NC}"
 	@rm -rf $(BUILD_DIR)
+
+.PHONY: clean-submodule
+clean-submodule:
+	@echo -e "${BLUE}Cleaning stray build artifacts inside libbitcoinpqc submodule...${NC}"
+	@rm -rf libbitcoinpqc/build libbitcoinpqc/Testing
 
 .PHONY: clean-rust
 clean-rust:
@@ -191,7 +211,8 @@ help:
 	@echo -e "${BLUE}------------------------------------${NC}"
 	@echo -e "Main targets:"
 	@echo -e "  ${GREEN}all${NC}             - Build C library, Rust bindings, and language bindings (default)"
-	@echo -e "  ${GREEN}c-lib${NC}           - Build the C library (from subtree)"
+	@echo -e "  ${GREEN}c-lib${NC}           - Build the C library (from submodule)"
+	@echo -e "  ${GREEN}c-lib-test${NC}      - Build C library with tests and run ctest"
 	@echo -e "  ${GREEN}rust-lib${NC}        - Build the Rust bindings"
 	@echo -e "  ${GREEN}bindings${NC}        - Build Python and NodeJS bindings"
 	@echo -e "  ${GREEN}python${NC}          - Build Python bindings"
@@ -201,7 +222,7 @@ help:
 	@echo -e "  ${GREEN}bench${NC}           - Run benchmarks"
 	@echo -e "  ${GREEN}docs${NC}            - Build documentation"
 	@echo -e "  ${GREEN}install${NC}         - Install libraries"
-	@echo -e "  ${GREEN}clean${NC}           - Clean all build files"
+	@echo -e "  ${GREEN}clean${NC}           - Clean all build files (incl. submodule artifacts)"
 	@echo -e "  ${GREEN}help${NC}            - Display this help message"
 	@echo -e ""
 	@echo -e "Developer targets:"

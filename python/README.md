@@ -5,8 +5,7 @@ This package provides Python bindings for the libbitcoinpqc library, which imple
 ## Supported Algorithms
 
 - **ML-DSA-44** (CRYSTALS-Dilithium): A structured lattice-based digital signature scheme
-- **SLH-DSA-Shake-128s** (SPHINCS+): A stateless hash-based signature scheme
-- **FN-DSA-512** (FALCON): A lattice-based signature scheme designed for efficiency
+- **SLH-DSA-SHA2-128s** (SPHINCS+): A stateless hash-based signature scheme
 
 ## Installation
 
@@ -61,6 +60,13 @@ signature = sign(algorithm, keypair.secret_key, message)
 is_valid = verify(algorithm, keypair.public_key, message, signature)
 print(f"Signature valid: {is_valid}")  # Should print True
 ```
+
+## Breaking Changes (Phase 2)
+
+- Rename `SLH_DSA_SHAKE_128S` → `SLH_DSA_SHA2_128S`
+- Remove `FN_DSA_512` (no longer supported)
+- Enum wire values: `SECP256K1_SCHNORR=0`, `ML_DSA_44=1`, `SLH_DSA_SHA2_128S=2`
+- **Re-keying required:** SHAKE-128s keys/signatures are incompatible with SHA2-128s
 
 ## Running Tests
 

@@ -33,7 +33,7 @@ mkdir -p "$OUTPUT_DIR" "$OBJ_DIR"
 COMMON_FLAGS=(
     -O2                              # Use O2 instead of O3 (O3 can break VLAs in WASM)
     -DDILITHIUM_MODE=2
-    -DPARAMS=sphincs-shake-128s
+    -DPARAMS=sphincs-sha2-128s
     -DCUSTOM_RANDOMBYTES=1
 )
 
@@ -93,15 +93,15 @@ DILITHIUM_SOURCES=(
 SPHINCSPLUS_SOURCES=(
     "$PROJECT_ROOT/libbitcoinpqc/sphincsplus/ref/address.c"
     "$PROJECT_ROOT/libbitcoinpqc/sphincsplus/ref/fors.c"
-    "$PROJECT_ROOT/libbitcoinpqc/sphincsplus/ref/hash_shake.c"
+    "$PROJECT_ROOT/libbitcoinpqc/sphincsplus/ref/hash_sha2.c"
     "$PROJECT_ROOT/libbitcoinpqc/sphincsplus/ref/merkle.c"
     "$PROJECT_ROOT/libbitcoinpqc/sphincsplus/ref/sign.c"
-    "$PROJECT_ROOT/libbitcoinpqc/sphincsplus/ref/thash_shake_simple.c"
+    "$PROJECT_ROOT/libbitcoinpqc/sphincsplus/ref/thash_sha2_simple.c"
     "$PROJECT_ROOT/libbitcoinpqc/sphincsplus/ref/utils.c"
     "$PROJECT_ROOT/libbitcoinpqc/sphincsplus/ref/utilsx1.c"
     "$PROJECT_ROOT/libbitcoinpqc/sphincsplus/ref/wots.c"
     "$PROJECT_ROOT/libbitcoinpqc/sphincsplus/ref/wotsx1.c"
-    "$PROJECT_ROOT/libbitcoinpqc/sphincsplus/ref/fips202.c"
+    "$PROJECT_ROOT/libbitcoinpqc/sphincsplus/ref/sha2.c"
 )
 
 # WASM-specific randombytes implementation

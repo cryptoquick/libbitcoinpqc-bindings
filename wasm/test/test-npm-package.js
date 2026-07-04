@@ -10,6 +10,12 @@
  */
 
 const path = require('path');
+const {
+    SLH_DSA_SHA2_EXPECTED_PK,
+    SLH_DSA_SHA2_EXPECTED_SIG,
+    SLH_DSA_SHA2_TEST_ENTROPY,
+    SLH_DSA_SHA2_TEST_MESSAGE,
+} = require('./slh_dsa_sha2_golden_vectors');
 
 // Load the high-level WASM module
 let bitcoinpqc;
@@ -37,6 +43,67 @@ function generateRandomBytes(length) {
     const randomBytes = crypto.randomBytes(length);
     array.set(randomBytes);
     return array;
+}
+
+function bytesEqual(a, b) {
+    if (a.length !== b.length) {
+        return false;
+    }
+    for (let i = 0; i < a.length; i++) {
+        if (a[i] !== b[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+async function testSlhDsaSha2GoldenVectors() {
+    console.log('\nTesting SLH-DSA-SHA2-128s golden vectors:');
+    console.log('-------------------------------------------');
+
+    try {
+        const keypair = bitcoinpqc.generateKeypair(
+            Algorithm.SLH_DSA_SHA2_128S,
+            SLH_DSA_SHA2_TEST_ENTROPY
+        );
+
+        if (!bytesEqual(keypair.publicKey, SLH_DSA_SHA2_EXPECTED_PK)) {
+            console.log('ERROR: Public key does not match golden vector');
+            return false;
+        }
+
+        const message = new TextEncoder().encode(SLH_DSA_SHA2_TEST_MESSAGE);
+        const signature = bitcoinpqc.sign(
+            keypair.secretKey,
+            message,
+            Algorithm.SLH_DSA_SHA2_128S
+        );
+
+        if (!bytesEqual(signature.bytes || signature, SLH_DSA_SHA2_EXPECTED_SIG)) {
+            const sigBytes = signature.bytes || signature;
+            console.log('ERROR: Signature does not match golden vector');
+            console.log(`Expected ${SLH_DSA_SHA2_EXPECTED_SIG.length} bytes, got ${sigBytes.length}`);
+            return false;
+        }
+
+        const verified = bitcoinpqc.verify(
+            keypair.publicKey,
+            message,
+            signature,
+            Algorithm.SLH_DSA_SHA2_128S
+        );
+
+        if (!verified) {
+            console.log('ERROR: Golden signature verification failed');
+            return false;
+        }
+
+        console.log('✓ Golden vectors passed!\n');
+        return true;
+    } catch (error) {
+        console.error(`❌ Golden vector test failed: ${error.message}`);
+        return false;
+    }
 }
 
 // Test function
@@ -82,16 +149,6 @@ async function testAlgorithm(algorithm, name) {
             const signDuration = Date.now() - signStart;
             console.log(`Signing failed after ${signDuration} ms`);
             console.log(`Error: ${error.message}`);
-            if (algorithm === Algorithm.SLH_DSA_SHAKE_128S) {
-                console.log('');
-                console.log('⚠️  NOTE: SLH-DSA-SHAKE-128s signing is currently experiencing');
-                console.log('   issues when compiled to WebAssembly. This appears to be a');
-                console.log('   bug in the SPHINCS+ reference implementation when compiled');
-                console.log('   to WASM. ML-DSA-44 (Dilithium) works correctly.');
-                console.log('');
-                console.log('   Key generation succeeded, but signing failed.');
-                console.log('   This is a known limitation of the browser/WASM build.');
-            }
             throw error;
         }
 
@@ -182,14 +239,18 @@ async function runTests() {
     // Test ML-DSA-44
     results.push(await testAlgorithm(Algorithm.ML_DSA_44, 'ML-DSA-44'));
 
-    // Test SLH-DSA-Shake-128s
-    results.push(await testAlgorithm(Algorithm.SLH_DSA_SHAKE_128S, 'SLH-DSA-Shake-128s'));
+    // Test SLH-DSA-SHA2-128s
+    results.push(await testAlgorithm(Algorithm.SLH_DSA_SHA2_128S, 'SLH-DSA-SHA2-128s'));
+
+    // Golden-vector regression (catches SHA2/SHAKE build mismatches)
+    results.push(await testSlhDsaSha2GoldenVectors());
 
     // Summary
     console.log('\n======================================================');
     console.log('Test Summary:');
     console.log(`  ML-DSA-44: ${results[0] ? '✓ PASSED' : '✗ FAILED'}`);
-    console.log(`  SLH-DSA-Shake-128s: ${results[1] ? '✓ PASSED' : '✗ FAILED'}`);
+    console.log(`  SLH-DSA-SHA2-128s: ${results[1] ? '✓ PASSED' : '✗ FAILED'}`);
+    console.log(`  SLH-DSA-SHA2-128s golden: ${results[2] ? '✓ PASSED' : '✗ FAILED'}`);
     console.log('======================================================\n');
 
     const exitCode = results.every(r => r) ? 0 : 1;

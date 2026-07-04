@@ -1,9 +1,9 @@
 # libbitcoinpqc-bindings
 
-Language bindings (Rust, Python, Node.js) for the [libbitcoinpqc](https://github.com/jbride/libbitcoinpqc) C library. The C library implements two NIST PQC standard signature algorithms for use with [BIP-360](https://github.com/cryptoquick/bips/blob/p2qrh/bip-0360.mediawiki) and the Bitcoin QuBit soft fork:
+Language bindings (Rust, Python, Node.js) for the [libbitcoinpqc](https://github.com/cryptoquick/libbitcoinpqc) C library. The C library implements two NIST PQC standard signature algorithms for use with [BIP-360](https://github.com/cryptoquick/bips/blob/p2qrh/bip-0360.mediawiki) and the Bitcoin QuBit soft fork:
 
 1. **ML-DSA-44** (formerly CRYSTALS-Dilithium): A structured lattice-based digital signature scheme that is part of the NIST PQC standardization.
-2. **SLH-DSA-Shake-128s** (formerly SPHINCS+): A stateless hash-based signature scheme with minimal security assumptions.
+2. **SLH-DSA-SHA2-128s** (formerly SPHINCS+): A stateless hash-based signature scheme with minimal security assumptions. Uses SHA-256, aligning with Bitcoin's native hash primitive.
 
 Notice that all PQC signature algorithms used are certified according to the Federal Information Processing Standards, or FIPS. This should help in the future with native hardware support.
 
@@ -26,10 +26,24 @@ This library serves as the cryptographic foundation for the Bitcoin QuBit soft f
 | Algorithm | Public Key Size | Secret Key Size | Signature Size | Security Level |
 |-----------|----------------|----------------|----------------|----------------|
 | secp256k1 | 32 bytes | 32 bytes | 64 bytes | Classical |
-| ML-DSA-44 | 1,312 bytes | 2,528 bytes | 2,420 bytes | NIST Level 2 |
-| SLH-DSA-SHAKE-128s | 32 bytes | 64 bytes | 7,856 bytes | NIST Level 1 |
+| ML-DSA-44 | 1,312 bytes | 2,560 bytes | 2,420 bytes | NIST Level 2 |
+| SLH-DSA-SHA2-128s | 32 bytes | 64 bytes | 7,856 bytes | NIST Level 1 |
 
 See [REPORT.md](benches/REPORT.md) for performance and size comparison to secp256k1.
+
+## Breaking Changes (Phase 2)
+
+Phase 2 renames SLH-DSA bindings from SHAKE-128s to SHA2-128s. Update identifiers as follows:
+
+| Old identifier | New identifier |
+|----------------|----------------|
+| `SLH_DSA_128S` (Rust) | `SLH_DSA_SHA2_128S` |
+| `SLH_DSA_SHAKE_128S` (Python/Node.js/WASM) | `SLH_DSA_SHA2_128S` |
+
+- Enum wire value `2` is unchanged.
+- Key sizes (32/64/7856 bytes) are unchanged.
+- **Python enum IDs changed:** removed `FN_DSA_512`; `ML_DSA_44=1`, `SLH_DSA_SHA2_128S=2`.
+- **Re-keying required:** keys and signatures from SHAKE-128s are cryptographically incompatible with SHA2-128s. Generate new key pairs after upgrading.
 
 ## Security Notes
 
@@ -48,11 +62,14 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Dependencies
 
-The C library is included via a git subtree from [libbitcoinpqc](https://github.com/jbride/libbitcoinpqc) at `libbitcoinpqc/`. To pull upstream changes:
+The C library is included as a git submodule from [libbitcoinpqc](https://github.com/cryptoquick/libbitcoinpqc) at `libbitcoinpqc/`, tracking branch `27-slh-dsa-sha-2-128s` (see `.gitmodules`). To bump the pinned commit after upstream changes on that branch (or once merged to `main`):
 
 ```bash
-git subtree pull --prefix=libbitcoinpqc https://github.com/jbride/libbitcoinpqc.git binding_segregation --squash
+cd libbitcoinpqc && git fetch && git checkout <new-ref> && cd ..
+git add libbitcoinpqc && git commit -m "Bump libbitcoinpqc submodule"
 ```
+
+Build outputs belong in the **parent** `build/` directory (`make c-lib`, `make c-lib-test`). Do not run `cmake -B build` or bare `ctest` inside `libbitcoinpqc/` — that leaves `libbitcoinpqc/build/` and `libbitcoinpqc/Testing/` behind and makes `git submodule status` report untracked content. Run `make clean` (or `make clean-submodule`) to remove those artifacts.
 
 ## Building
 
@@ -65,11 +82,14 @@ git subtree pull --prefix=libbitcoinpqc https://github.com/jbride/libbitcoinpqc.
 ### Building
 
 ```bash
-# Clone the repository
-git clone https://github.com/jbride/libbitcoinpqc-bindings.git
+# Clone the repository (with submodules)
+git clone --recurse-submodules https://github.com/cryptoquick/libbitcoinpqc-bindings.git
 cd libbitcoinpqc-bindings
 
-# Build the Rust bindings (automatically builds the C library from the subtree)
+# Or, if already cloned without submodules:
+# git submodule update --init --recursive
+
+# Build the Rust bindings (automatically builds the C library from the submodule)
 cargo build --release
 
 # Or use the Makefile
@@ -121,16 +141,16 @@ uint8_t random_data[256];
 
 // Generate a key pair
 bitcoin_pqc_keypair_t keypair;
-bitcoin_pqc_keygen(BITCOIN_PQC_MLDSA44, &keypair, random_data, sizeof(random_data));
+bitcoin_pqc_keygen(BITCOIN_PQC_ML_DSA_44, &keypair, random_data, sizeof(random_data));
 
 // Sign a message
 const uint8_t message[] = "Message to sign";
 bitcoin_pqc_signature_t signature;
-bitcoin_pqc_sign(BITCOIN_PQC_MLDSA44, keypair.secret_key, keypair.secret_key_size,
+bitcoin_pqc_sign(BITCOIN_PQC_ML_DSA_44, keypair.secret_key, keypair.secret_key_size,
                 message, sizeof(message) - 1, &signature);
 
 // Verify the signature
-bitcoin_pqc_error_t result = bitcoin_pqc_verify(BITCOIN_PQC_MLDSA44,
+bitcoin_pqc_error_t result = bitcoin_pqc_verify(BITCOIN_PQC_ML_DSA_44,
                                              keypair.public_key, keypair.public_key_size,
                                              message, sizeof(message) - 1,
                                              signature.signature, signature.signature_size);
@@ -153,7 +173,7 @@ let mut random_data = vec![0u8; 128];
 OsRng.fill_bytes(&mut random_data);
 
 // Generate a key pair
-let keypair = generate_keypair(Algorithm::MLDSA44, &random_data).unwrap();
+let keypair = generate_keypair(Algorithm::ML_DSA_44, &random_data).unwrap();
 
 // Create a message to sign
 let message = b"Message to sign";
@@ -218,7 +238,7 @@ The Python API mirrors the C API closely, with some Pythonic improvements:
 - **Algorithm** - Enum class for algorithm selection
   - `SECP256K1_SCHNORR`
   - `ML_DSA_44` (CRYSTALS-Dilithium)
-  - `SLH_DSA_SHAKE_128S` (SPHINCS+)
+  - `SLH_DSA_SHA2_128S` (SPHINCS+)
 
 - **KeyPair** - Class to hold a public/secret key pair
   - `algorithm` - The algorithm used
@@ -286,7 +306,7 @@ The TypeScript API provides a clean, modern interface:
 - **Algorithm** - Enum for algorithm selection
   - `SECP256K1_SCHNORR`
   - `ML_DSA_44` (CRYSTALS-Dilithium)
-  - `SLH_DSA_SHAKE_128S` (SPHINCS+)
+  - `SLH_DSA_SHA2_128S` (SPHINCS+)
 
 - **Classes**
   - `PublicKey` - Public key wrapper

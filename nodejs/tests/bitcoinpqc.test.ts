@@ -1,6 +1,5 @@
 import {
   Algorithm,
-  ErrorCode,
   PqcError,
   generateKeyPair,
   publicKeySize,
@@ -11,10 +10,11 @@ import {
 } from "../src";
 
 import {
-  getLibrary,
-  setLibraryForTesting,
-  BitcoinPqcNative,
-} from "../src/library";
+  SLH_DSA_SHA2_EXPECTED_PK,
+  SLH_DSA_SHA2_EXPECTED_SIG,
+  SLH_DSA_SHA2_TEST_ENTROPY,
+  SLH_DSA_SHA2_TEST_MESSAGE,
+} from "./slh_dsa_sha2_golden_vectors";
 
 describe("Bitcoin PQC", () => {
   // Generate random data for tests
@@ -26,18 +26,25 @@ describe("Bitcoin PQC", () => {
     return bytes;
   }
 
+  test("algorithm enum wire values", () => {
+    expect(Algorithm.SECP256K1_SCHNORR).toBe(0);
+    expect(Algorithm.ML_DSA_44).toBe(1);
+    expect(Algorithm.SLH_DSA_SHA2_128S).toBe(2);
+  });
+
   describe("key sizes", () => {
     test("should report correct key sizes for each algorithm", () => {
-      // Test key size reporting functions
-      for (const algo of [
-        Algorithm.SECP256K1_SCHNORR,
-        Algorithm.ML_DSA_44,
-        Algorithm.SLH_DSA_SHAKE_128S,
-      ]) {
-        expect(publicKeySize(algo)).toBeGreaterThan(0);
-        expect(secretKeySize(algo)).toBeGreaterThan(0);
-        expect(signatureSize(algo)).toBeGreaterThan(0);
-      }
+      expect(publicKeySize(Algorithm.SECP256K1_SCHNORR)).toBe(32);
+      expect(secretKeySize(Algorithm.SECP256K1_SCHNORR)).toBe(32);
+      expect(signatureSize(Algorithm.SECP256K1_SCHNORR)).toBe(64);
+
+      expect(publicKeySize(Algorithm.ML_DSA_44)).toBe(1312);
+      expect(secretKeySize(Algorithm.ML_DSA_44)).toBe(2560);
+      expect(signatureSize(Algorithm.ML_DSA_44)).toBe(2420);
+
+      expect(publicKeySize(Algorithm.SLH_DSA_SHA2_128S)).toBe(32);
+      expect(secretKeySize(Algorithm.SLH_DSA_SHA2_128S)).toBe(64);
+      expect(signatureSize(Algorithm.SLH_DSA_SHA2_128S)).toBe(7856);
     });
   });
 
@@ -46,34 +53,25 @@ describe("Bitcoin PQC", () => {
 
     // Skip this test for now
     test.skip("should generate keypair, sign and verify", () => {
-      // Generate random data for key generation
       const randomData = getRandomBytes(128);
-
-      // Generate a keypair
       const keypair = generateKeyPair(algorithm, randomData);
 
-      // Verify key sizes match reported sizes
       expect(keypair.publicKey.bytes.length).toBe(publicKeySize(algorithm));
       expect(keypair.secretKey.bytes.length).toBe(secretKeySize(algorithm));
 
-      // Test message signing
       const message = new TextEncoder().encode("Hello, Bitcoin PQC!");
       const signature = sign(keypair.secretKey, message);
 
-      // Verify signature size matches reported size
       expect(signature.bytes.length).toBe(signatureSize(algorithm));
 
-      // Verify the signature - should not throw
       expect(() => {
         verify(keypair.publicKey, message, signature);
       }).not.toThrow();
 
-      // Verify with raw signature bytes
       expect(() => {
         verify(keypair.publicKey, message, signature.bytes);
       }).not.toThrow();
 
-      // Verify that the signature doesn't verify for a different message
       const badMessage = new TextEncoder().encode("Bad message!");
       expect(() => {
         verify(keypair.publicKey, badMessage, signature);
@@ -81,73 +79,57 @@ describe("Bitcoin PQC", () => {
     });
   });
 
-  describe("SLH-DSA-SHAKE-128s (SPHINCS+)", () => {
-    const algorithm = Algorithm.SLH_DSA_SHAKE_128S;
+  describe("SLH-DSA-SHA2-128s (SPHINCS+)", () => {
+    const algorithm = Algorithm.SLH_DSA_SHA2_128S;
 
     test("should generate keypair, sign and verify", () => {
-      // Generate random data for key generation
       const randomData = getRandomBytes(128);
-
-      // Generate a keypair
       const keypair = generateKeyPair(algorithm, randomData);
 
-      // Verify key sizes match reported sizes
       expect(keypair.publicKey.bytes.length).toBe(publicKeySize(algorithm));
       expect(keypair.secretKey.bytes.length).toBe(secretKeySize(algorithm));
 
-      // Test message signing
       const message = new TextEncoder().encode("Hello, Bitcoin PQC!");
       const signature = sign(keypair.secretKey, message);
 
-      // Verify signature size matches reported size
       expect(signature.bytes.length).toBe(signatureSize(algorithm));
 
-      // Verify the signature - should not throw
+      expect(() => {
+        verify(keypair.publicKey, message, signature);
+      }).not.toThrow();
+    });
+
+    test("golden vectors match libbitcoinpqc reference", () => {
+      const keypair = generateKeyPair(algorithm, SLH_DSA_SHA2_TEST_ENTROPY);
+
+      expect(Buffer.from(keypair.publicKey.bytes)).toEqual(
+        Buffer.from(SLH_DSA_SHA2_EXPECTED_PK)
+      );
+
+      const message = new TextEncoder().encode(SLH_DSA_SHA2_TEST_MESSAGE);
+      const signature = sign(keypair.secretKey, message);
+
+      expect(Buffer.from(signature.bytes)).toEqual(
+        Buffer.from(SLH_DSA_SHA2_EXPECTED_SIG)
+      );
+
       expect(() => {
         verify(keypair.publicKey, message, signature);
       }).not.toThrow();
     });
   });
 
+  describe("error conditions", () => {
+    test("should throw on invalid input", () => {
+      expect(() => {
+        const randomData = getRandomBytes(128);
+        generateKeyPair(99 as Algorithm, randomData);
+      }).toThrow(PqcError);
 
-  test("should generate keypair, sign and verify", () => {
-    // Generate random data for key generation
-    const randomData = getRandomBytes(128);
-
-    // Generate a keypair
-    const keypair = generateKeyPair(algorithm, randomData);
-
-    // Verify key sizes match reported sizes
-    expect(keypair.publicKey.bytes.length).toBe(publicKeySize(algorithm));
-    expect(keypair.secretKey.bytes.length).toBe(secretKeySize(algorithm));
-
-    // Test message signing
-    const message = new TextEncoder().encode("Hello, Bitcoin PQC!");
-    const signature = sign(keypair.secretKey, message);
-
-    // Verify signature size matches reported size
-    expect(signature.bytes.length).toBe(signatureSize(algorithm));
-
-    // Verify the signature - should not throw
-    expect(() => {
-      verify(keypair.publicKey, message, signature);
-    }).not.toThrow();
+      expect(() => {
+        const randomData = getRandomBytes(16);
+        generateKeyPair(Algorithm.ML_DSA_44, randomData);
+      }).toThrow(PqcError);
+    });
   });
-});
-
-describe("error conditions", () => {
-  test("should throw on invalid input", () => {
-    // Invalid algorithm
-    expect(() => {
-      const randomData = getRandomBytes(128);
-      generateKeyPair(99 as Algorithm, randomData);
-    }).toThrow(PqcError);
-
-    // Invalid random data size
-    expect(() => {
-      const randomData = getRandomBytes(16); // Less than 128 bytes
-      generateKeyPair(Algorithm.ML_DSA_44, randomData);
-    }).toThrow(PqcError);
-  });
-});
 });

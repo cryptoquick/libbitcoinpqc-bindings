@@ -11,7 +11,7 @@ import crypto from "crypto";
 
 /**
  * This example demonstrates basic usage of the bitcoinpqc TypeScript bindings
- * with SLH-DSA-SHAKE-128S (SPHINCS+).
+ * with SLH-DSA-SHA2-128S (SPHINCS+).
  *
  * It shows:
  * 1. Getting key and signature sizes for SLH-DSA
@@ -23,7 +23,7 @@ import crypto from "crypto";
 
 // Print key sizes for SLH-DSA algorithm
 console.log("===== SLH-DSA Key and Signature Sizes =====");
-const algo = Algorithm.SLH_DSA_SHAKE_128S;
+const algo = Algorithm.SLH_DSA_SHA2_128S;
 const algoName = Algorithm[algo];
 console.log(`${algoName}:`);
 console.log(`  Public key size: ${publicKeySize(algo)} bytes`);
@@ -33,7 +33,7 @@ console.log();
 
 // Generate a keypair and demonstrate SLH-DSA functionality
 function demonstrateSlhDsa(): void {
-  console.log(`===== Working with ${Algorithm[Algorithm.SLH_DSA_SHAKE_128S]} =====`);
+  console.log(`===== Working with ${Algorithm[Algorithm.SLH_DSA_SHA2_128S]} =====`);
 
   // Generate random data for key generation
   console.log("Generating random data...");
@@ -42,13 +42,13 @@ function demonstrateSlhDsa(): void {
   try {
     // Generate a keypair
     console.log("Generating SLH-DSA keypair...");
-    const keypair = generateKeyPair(Algorithm.SLH_DSA_SHAKE_128S, randomData);
+    const keypair = generateKeyPair(Algorithm.SLH_DSA_SHA2_128S, randomData);
     console.log(
       `Generated keypair with public key size ${keypair.publicKey.bytes.length} bytes`
     );
 
     // Create a message to sign
-    const message = "Hello from SLH-DSA-SHAKE-128S (SPHINCS+)!";
+    const message = "Hello from SLH-DSA-SHA2-128S (SPHINCS+)!";
     const messageBytes = Buffer.from(message, "utf-8");
     console.log(`Message to sign: "${message}"`);
 
@@ -80,7 +80,7 @@ function demonstrateSlhDsa(): void {
     }
   } catch (error) {
     console.error(
-      `❌ Error while working with ${Algorithm[Algorithm.SLH_DSA_SHAKE_128S]}:`,
+      `❌ Error while working with ${Algorithm[Algorithm.SLH_DSA_SHA2_128S]}:`,
       error
     );
   }

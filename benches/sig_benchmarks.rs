@@ -103,10 +103,10 @@ fn bench_slh_dsa_128s_keygen(c: &mut Criterion) {
     configure_group(&mut group);
     group.sample_size(10); // Reduce sample count for SLH-DSA which is slower
 
-    group.bench_function("SLH_DSA_128S", |b| {
+    group.bench_function("SLH_DSA_SHA2_128S", |b| {
         b.iter(|| {
             let random_data = get_random_data(256);
-            generate_keypair(Algorithm::SLH_DSA_128S, &random_data).unwrap()
+            generate_keypair(Algorithm::SLH_DSA_SHA2_128S, &random_data).unwrap()
         });
     });
 
@@ -120,9 +120,9 @@ fn bench_slh_dsa_128s_signing(c: &mut Criterion) {
 
     let message = b"This is a test message for benchmarking";
     let random_data = get_random_data(256);
-    let slh_keypair = generate_keypair(Algorithm::SLH_DSA_128S, &random_data).unwrap();
+    let slh_keypair = generate_keypair(Algorithm::SLH_DSA_SHA2_128S, &random_data).unwrap();
 
-    group.bench_function("SLH_DSA_128S", |b| {
+    group.bench_function("SLH_DSA_SHA2_128S", |b| {
         b.iter(|| sign(&slh_keypair.secret_key, message));
     });
 
@@ -136,10 +136,10 @@ fn bench_slh_dsa_128s_verification(c: &mut Criterion) {
 
     let message = b"This is a test message for benchmarking";
     let random_data = get_random_data(256);
-    let slh_keypair = generate_keypair(Algorithm::SLH_DSA_128S, &random_data).unwrap();
+    let slh_keypair = generate_keypair(Algorithm::SLH_DSA_SHA2_128S, &random_data).unwrap();
     let slh_sig = sign(&slh_keypair.secret_key, message).unwrap();
 
-    group.bench_function("SLH_DSA_128S", |b| {
+    group.bench_function("SLH_DSA_SHA2_128S", |b| {
         b.iter(|| verify(&slh_keypair.public_key, message, &slh_sig).unwrap());
     });
 
@@ -170,7 +170,7 @@ fn bench_sizes(c: &mut Criterion) {
 
     // SLH-DSA-128S
     let random_data = get_random_data(256);
-    let slh_keypair = generate_keypair(Algorithm::SLH_DSA_128S, &random_data).unwrap();
+    let slh_keypair = generate_keypair(Algorithm::SLH_DSA_SHA2_128S, &random_data).unwrap();
     let slh_sig = sign(&slh_keypair.secret_key, message).unwrap();
     let slh_pk_size = slh_keypair.public_key.bytes.len();
     let slh_sk_size = slh_keypair.secret_key.bytes.len();

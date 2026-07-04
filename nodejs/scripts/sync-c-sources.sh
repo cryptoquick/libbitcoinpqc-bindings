@@ -27,6 +27,9 @@ echo "Copying Dilithium reference implementation..."
 cp -r ../libbitcoinpqc/dilithium/ref src/c_sources/dilithium_ref
 
 echo "Copying SPHINCS+ reference implementation..."
+# Copies the full upstream ref tree (SHAKE and SHA2 files). binding.gyp selects
+# SHA2 sources only (hash_sha2.c, thash_sha2_simple.c, sha2.c); orphaned SHAKE
+# files in sphincsplus_ref/ are intentionally not removed.
 cp -r ../libbitcoinpqc/sphincsplus/ref src/c_sources/sphincsplus_ref
 
 echo "Copying include files..."

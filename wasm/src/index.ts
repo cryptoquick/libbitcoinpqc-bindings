@@ -8,7 +8,7 @@
 // Type definitions
 export enum Algorithm {
     ML_DSA_44 = 1,
-    SLH_DSA_SHAKE_128S = 2,
+    SLH_DSA_SHA2_128S = 2,
 }
 
 export interface KeyPair {

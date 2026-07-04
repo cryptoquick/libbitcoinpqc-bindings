@@ -82,9 +82,8 @@ def _find_library():
 class Algorithm(enum.IntEnum):
     """Algorithm types from bitcoin_pqc_algorithm_t."""
     SECP256K1_SCHNORR = 0
-    FN_DSA_512 = 1  # FALCON-512
-    ML_DSA_44 = 2   # CRYSTALS-Dilithium Level I
-    SLH_DSA_SHAKE_128S = 3  # SPHINCS+-128s
+    ML_DSA_44 = 1  # CRYSTALS-Dilithium Level I
+    SLH_DSA_SHA2_128S = 2  # SLH-DSA-SHA2-128s (SPHINCS+)
 
 
 class Error(enum.IntEnum):
@@ -173,27 +172,24 @@ if _MOCK_MODE:
         def _bitcoin_pqc_public_key_size(self, algorithm):
             sizes = {
                 0: 32,  # SECP256K1_SCHNORR
-                1: 897,  # FN_DSA_512
-                2: 1312,  # ML_DSA_44
-                3: 32,  # SLH_DSA_SHAKE_128S
+                1: 1312,  # ML_DSA_44
+                2: 32,  # SLH_DSA_SHA2_128S
             }
             return sizes.get(algorithm, 32)
 
         def _bitcoin_pqc_secret_key_size(self, algorithm):
             sizes = {
                 0: 32,  # SECP256K1_SCHNORR
-                1: 1281,  # FN_DSA_512
-                2: 2528,  # ML_DSA_44
-                3: 64,  # SLH_DSA_SHAKE_128S
+                1: 2560,  # ML_DSA_44
+                2: 64,  # SLH_DSA_SHA2_128S
             }
             return sizes.get(algorithm, 64)
 
         def _bitcoin_pqc_signature_size(self, algorithm):
             sizes = {
                 0: 64,  # SECP256K1_SCHNORR
-                1: 666,  # FN_DSA_512
-                2: 2420,  # ML_DSA_44
-                3: 7856,  # SLH_DSA_SHAKE_128S
+                1: 2420,  # ML_DSA_44
+                2: 7856,  # SLH_DSA_SHA2_128S
             }
             return sizes.get(algorithm, 64)
 

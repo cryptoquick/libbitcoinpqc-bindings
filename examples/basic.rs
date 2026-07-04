@@ -13,7 +13,11 @@ fn main() {
 
     // Test each algorithm
     test_algorithm(Algorithm::ML_DSA_44, "ML-DSA-44", &random_data);
-    test_algorithm(Algorithm::SLH_DSA_128S, "SLH-DSA-Shake-128s", &random_data);
+    test_algorithm(
+        Algorithm::SLH_DSA_SHA2_128S,
+        "SLH-DSA-SHA2-128s",
+        &random_data,
+    );
 }
 
 fn test_algorithm(algorithm: Algorithm, name: &str, random_data: &[u8]) {

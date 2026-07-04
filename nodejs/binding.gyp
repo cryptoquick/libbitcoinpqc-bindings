@@ -25,15 +25,15 @@
         "src/c_sources/randombytes_custom.c",
         "src/c_sources/sphincsplus_ref/address.c",
         "src/c_sources/sphincsplus_ref/fors.c",
-        "src/c_sources/sphincsplus_ref/hash_shake.c",
+        "src/c_sources/sphincsplus_ref/hash_sha2.c",
         "src/c_sources/sphincsplus_ref/merkle.c",
         "src/c_sources/sphincsplus_ref/sign.c",
-        "src/c_sources/sphincsplus_ref/thash_shake_simple.c",
+        "src/c_sources/sphincsplus_ref/thash_sha2_simple.c",
         "src/c_sources/sphincsplus_ref/utils.c",
         "src/c_sources/sphincsplus_ref/utilsx1.c",
         "src/c_sources/sphincsplus_ref/wots.c",
         "src/c_sources/sphincsplus_ref/wotsx1.c",
-        "src/c_sources/sphincsplus_ref/fips202.c"
+        "src/c_sources/sphincsplus_ref/sha2.c"
       ],
       "include_dirs": [
         "<!@(node -p \"require('node-addon-api').include\")",
@@ -50,8 +50,8 @@
       "defines": [
         "NAPI_DISABLE_CPP_EXCEPTIONS",
         "DILITHIUM_MODE=2",
-        "CRYPTO_ALGNAME=\"SPHINCS+-shake-128s\"",
-        "PARAMS=sphincs-shake-128s",
+        "CRYPTO_ALGNAME=\"SPHINCS+-sha2-128s\"",
+        "PARAMS=sphincs-sha2-128s",
         "CUSTOM_RANDOMBYTES=1"
       ],
       "conditions": [

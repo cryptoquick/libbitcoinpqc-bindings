@@ -219,16 +219,6 @@ async function testAlgorithm(algorithm, name) {
             const signDuration = Date.now() - signStart;
             console.log(`Signing failed after ${signDuration} ms`);
             console.log(`Error: ${error.message}`);
-            if (algorithm === 2) {
-                console.log('');
-                console.log('⚠️  NOTE: SLH-DSA-SHAKE-128s signing is currently experiencing');
-                console.log('   issues when compiled to WebAssembly. This appears to be a');
-                console.log('   bug in the SPHINCS+ reference implementation when compiled');
-                console.log('   to WASM. ML-DSA-44 (Dilithium) works correctly.');
-                console.log('');
-                console.log('   Key generation succeeded, but signing failed.');
-                console.log('   This is a known limitation of the browser/WASM build.');
-            }
             Module.ccall('bitcoin_pqc_keypair_free', null, ['number'], [keypair.keypairPtr]);
             throw error;
         }
@@ -289,14 +279,14 @@ async function runTests() {
     // Test ML-DSA-44
     results.push(await testAlgorithm(1, 'ML-DSA-44'));
 
-    // Test SLH-DSA-Shake-128s
-    results.push(await testAlgorithm(2, 'SLH-DSA-Shake-128s'));
+    // Test SLH-DSA-SHA2-128s
+    results.push(await testAlgorithm(2, 'SLH-DSA-SHA2-128s'));
 
     // Summary
     console.log('\n=====================================');
     console.log('Test Summary:');
     console.log(`  ML-DSA-44: ${results[0] ? '✓ PASSED' : '✗ FAILED'}`);
-    console.log(`  SLH-DSA-Shake-128s: ${results[1] ? '✓ PASSED' : '✗ FAILED'}`);
+    console.log(`  SLH-DSA-SHA2-128s: ${results[1] ? '✓ PASSED' : '✗ FAILED'}`);
     console.log('=====================================\n');
 
     const exitCode = results.every(r => r) ? 0 : 1;
