@@ -12,6 +12,9 @@ keywords = ["bitcoin", "pqc", "cryptography", "bip-360", "qubit"]
 hex = "0.4"
 libc = "0.2"
 bitmask-enum = "2.2.5"
+# Direct dep so getrandom's wasm_js backend unifies with --cfg getrandom_backend="wasm_js" in .cargo/config.toml.
+getrandom = { version = "0.3", features = ["wasm_js"] }
+criterion = { version = "0.5", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 secp256k1 = { version = "0.31.0", default-features = false, features = [
     "global-context",
@@ -20,17 +23,18 @@ secp256k1 = { version = "0.31.0", default-features = false, features = [
 
 [build-dependencies]
 bindgen = "0.71.1"
+cc = "1.2"
 cmake = "0.1"
 
 [dev-dependencies]
 hex = "0.4"
 rand = "0.9"
-criterion = "0.5"
-sha2 = "0.10"
 serde_json = "1.0"
+wasm-bindgen-test = "0.3"
 
 [features]
 default = []
+bench = ["dep:criterion"]
 # Enable this feature in your IDE for better code completion
 # but never use it for actual builds
 ide = []
@@ -44,3 +48,4 @@ crate-type = ["rlib", "staticlib", "cdylib"]
 [[bench]]
 name = "sig_benchmarks"
 harness = false
+required-features = ["bench"]

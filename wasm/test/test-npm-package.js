@@ -11,6 +11,18 @@
 
 const path = require('path');
 const {
+    ML_DSA_44_EXPECTED_PK,
+    ML_DSA_44_EXPECTED_SIG,
+    ML_DSA_44_TEST_ENTROPY,
+    ML_DSA_44_TEST_MESSAGE,
+} = require('./ml_dsa_44_golden_vectors');
+const {
+    SECP256K1_BIP340_ROW0_EXPECTED_PK,
+    SECP256K1_BIP340_ROW0_EXPECTED_SIG,
+    SECP256K1_BIP340_ROW0_MESSAGE,
+    SECP256K1_BIP340_ROW0_SECRET,
+} = require('./secp256k1_bip340_golden_vectors');
+const {
     SLH_DSA_SHA2_EXPECTED_PK,
     SLH_DSA_SHA2_EXPECTED_SIG,
     SLH_DSA_SHA2_TEST_ENTROPY,
@@ -36,6 +48,10 @@ try {
     process.exit(1);
 }
 
+// PQC E2E messages (aligned with Node.js / Python bindings)
+const PQC_TEST_MESSAGE = 'Hello, Bitcoin PQC!';
+const PQC_TAMPERED_MESSAGE = 'Bad message!';
+
 // Helper function to generate random bytes
 function generateRandomBytes(length) {
     const array = new Uint8Array(length);
@@ -43,6 +59,26 @@ function generateRandomBytes(length) {
     const randomBytes = crypto.randomBytes(length);
     array.set(randomBytes);
     return array;
+}
+
+function keygenEntropySize(algorithm) {
+    return algorithm === Algorithm.SECP256K1_SCHNORR ? 32 : 128;
+}
+
+function testMessageForAlgorithm(algorithm) {
+    if (algorithm === Algorithm.SECP256K1_SCHNORR) {
+        return SECP256K1_BIP340_ROW0_MESSAGE;
+    }
+    return Buffer.from(PQC_TEST_MESSAGE, 'utf8');
+}
+
+function tamperedMessageForAlgorithm(algorithm, message) {
+    if (algorithm === Algorithm.SECP256K1_SCHNORR) {
+        const tampered = Buffer.from(message);
+        tampered[31] ^= 0x01;
+        return tampered;
+    }
+    return Buffer.from(PQC_TAMPERED_MESSAGE, 'utf8');
 }
 
 function bytesEqual(a, b) {
@@ -55,6 +91,126 @@ function bytesEqual(a, b) {
         }
     }
     return true;
+}
+
+async function testSecpBip340Row0GoldenVector() {
+    console.log('\nTesting SECP256K1_SCHNORR BIP-340 row 0 golden vector:');
+    console.log('--------------------------------------------------------');
+
+    try {
+        const keypair = bitcoinpqc.generateKeypair(
+            Algorithm.SECP256K1_SCHNORR,
+            SECP256K1_BIP340_ROW0_SECRET
+        );
+
+        if (!bytesEqual(keypair.publicKey, SECP256K1_BIP340_ROW0_EXPECTED_PK)) {
+            console.log('ERROR: Public key does not match BIP-340 row 0');
+            return false;
+        }
+
+        if (!bytesEqual(keypair.secretKey, SECP256K1_BIP340_ROW0_SECRET)) {
+            console.log('ERROR: Secret key does not match BIP-340 row 0');
+            return false;
+        }
+
+        const message = new Uint8Array(SECP256K1_BIP340_ROW0_MESSAGE);
+        const signature = bitcoinpqc.sign(
+            keypair.secretKey,
+            message,
+            Algorithm.SECP256K1_SCHNORR
+        );
+
+        if (signature.size !== bitcoinpqc.signatureSize(Algorithm.SECP256K1_SCHNORR)) {
+            console.log('ERROR: Unexpected signature size for BIP-340 row 0');
+            return false;
+        }
+
+        const sigBytes = signature.bytes || signature;
+        if (!bytesEqual(sigBytes, SECP256K1_BIP340_ROW0_EXPECTED_SIG)) {
+            console.log('ERROR: Signature does not match BIP-340 row 0 golden vector');
+            return false;
+        }
+
+        const verified = bitcoinpqc.verify(
+            keypair.publicKey,
+            message,
+            signature,
+            Algorithm.SECP256K1_SCHNORR
+        );
+
+        if (!verified) {
+            console.log('ERROR: BIP-340 row 0 signature verification failed');
+            return false;
+        }
+
+        const tampered = Buffer.from(SECP256K1_BIP340_ROW0_MESSAGE);
+        tampered[31] ^= 0x01;
+        const tamperedVerified = bitcoinpqc.verify(
+            keypair.publicKey,
+            new Uint8Array(tampered),
+            signature,
+            Algorithm.SECP256K1_SCHNORR
+        );
+
+        if (tamperedVerified) {
+            console.log('ERROR: Tampered BIP-340 message incorrectly verified');
+            return false;
+        }
+
+        console.log('✓ BIP-340 row 0 golden vector passed!\n');
+        return true;
+    } catch (error) {
+        console.error(`❌ BIP-340 golden vector test failed: ${error.message}`);
+        return false;
+    }
+}
+
+async function testMlDsa44GoldenVectors() {
+    console.log('\nTesting ML-DSA-44 golden vectors:');
+    console.log('-----------------------------------');
+
+    try {
+        const keypair = bitcoinpqc.generateKeypair(
+            Algorithm.ML_DSA_44,
+            ML_DSA_44_TEST_ENTROPY
+        );
+
+        if (!bytesEqual(keypair.publicKey, ML_DSA_44_EXPECTED_PK)) {
+            console.log('ERROR: ML-DSA-44 public key does not match golden vector');
+            return false;
+        }
+
+        const message = new TextEncoder().encode(ML_DSA_44_TEST_MESSAGE);
+        const signature = bitcoinpqc.sign(
+            keypair.secretKey,
+            message,
+            Algorithm.ML_DSA_44
+        );
+
+        const sigBytes = signature.bytes || signature;
+        if (!bytesEqual(sigBytes, ML_DSA_44_EXPECTED_SIG)) {
+            console.log('ERROR: ML-DSA-44 signature does not match golden vector');
+            return false;
+        }
+
+        const verified = bitcoinpqc.verify(
+            keypair.publicKey,
+            message,
+            signature,
+            Algorithm.ML_DSA_44
+        );
+
+        if (!verified) {
+            console.log('ERROR: ML-DSA-44 golden signature verification failed');
+            return false;
+        }
+
+        console.log('✓ ML-DSA-44 golden vectors passed!\n');
+        return true;
+    } catch (error) {
+        console.error(`❌ ML-DSA-44 golden vector test failed: ${error.message}`);
+        return false;
+    }
 }
 
 async function testSlhDsaSha2GoldenVectors() {
@@ -121,8 +277,8 @@ async function testAlgorithm(algorithm, name) {
         console.log(`Secret key size: ${skSize} bytes`);
         console.log(`Signature size: ${sigSize} bytes`);
 
-        // Generate random data for key generation
-        const randomData = generateRandomBytes(128);
+        // Generate random data for key generation (32 bytes secp, 128 bytes PQC)
+        const randomData = generateRandomBytes(keygenEntropySize(algorithm));
 
         // Generate a key pair
         const keygenStart = Date.now();
@@ -130,11 +286,14 @@ async function testAlgorithm(algorithm, name) {
         const keygenDuration = Date.now() - keygenStart;
         console.log(`Key generation time: ${keygenDuration} ms`);
 
-        // Create a message to sign
-        const messageText = 'This is a test message for PQC signature verification';
-        const message = Buffer.from(messageText, 'utf8');
+        // Create a message to sign (32-byte hash semantics for secp)
+        const message = testMessageForAlgorithm(algorithm);
         const messageUint8 = new Uint8Array(message);
-        console.log(`Message to sign: "${messageText}"`);
+        if (algorithm === Algorithm.SECP256K1_SCHNORR) {
+            console.log('Message to sign: BIP-340 row 0 (32 zero bytes)');
+        } else {
+            console.log(`Message to sign: "${message.toString('utf8')}"`);
+        }
         console.log(`Message length: ${message.length} bytes`);
 
         // Sign the message
@@ -169,11 +328,14 @@ async function testAlgorithm(algorithm, name) {
         }
         console.log(`Verification time: ${verifyDuration} ms`);
 
-        // Try to verify with a modified message
-        const modifiedMessageText = 'This is a MODIFIED message for PQC signature verification';
-        const modifiedMessage = Buffer.from(modifiedMessageText, 'utf8');
+        // Try to verify with a tampered message
+        const modifiedMessage = tamperedMessageForAlgorithm(algorithm, message);
         const modifiedMessageUint8 = new Uint8Array(modifiedMessage);
-        console.log(`Modified message: "${modifiedMessageText}"`);
+        if (algorithm === Algorithm.SECP256K1_SCHNORR) {
+            console.log('Tampered message: BIP-340 row 0 with byte 31 flipped');
+        } else {
+            console.log(`Modified message: "${modifiedMessage.toString('utf8')}"`);
+        }
         const modifiedVerifyResult = bitcoinpqc.verify(
             keypair.publicKey,
             modifiedMessageUint8,
@@ -183,8 +345,13 @@ async function testAlgorithm(algorithm, name) {
 
         if (modifiedVerifyResult) {
             console.log('ERROR: Signature verified for modified message!');
-        } else {
-            console.log('Correctly rejected signature for modified message');
+            return false;
+        }
+        console.log('Correctly rejected signature for modified message');
+
+        if (!verifyResult) {
+            console.log('ERROR: E2E failed — signature verification did not succeed');
+            return false;
         }
 
         console.log('✓ Test passed!\n');
@@ -234,26 +401,40 @@ async function runTests() {
         process.exit(1);
     }
 
-    const results = [];
+    const e2eResults = [];
 
-    // Test ML-DSA-44
-    results.push(await testAlgorithm(Algorithm.ML_DSA_44, 'ML-DSA-44'));
+    // E2E: all three algorithms (keygen → sign → verify → tampered fails)
+    e2eResults.push(await testAlgorithm(Algorithm.SECP256K1_SCHNORR, 'SECP256K1_SCHNORR'));
+    e2eResults.push(await testAlgorithm(Algorithm.ML_DSA_44, 'ML-DSA-44'));
+    e2eResults.push(await testAlgorithm(Algorithm.SLH_DSA_SHA2_128S, 'SLH-DSA-SHA2-128s'));
 
-    // Test SLH-DSA-SHA2-128s
-    results.push(await testAlgorithm(Algorithm.SLH_DSA_SHA2_128S, 'SLH-DSA-SHA2-128s'));
+    const e2ePassed = e2eResults.filter(Boolean).length;
+    const e2eTotal = e2eResults.length;
 
-    // Golden-vector regression (catches SHA2/SHAKE build mismatches)
-    results.push(await testSlhDsaSha2GoldenVectors());
+    // Golden-vector regressions (extra; do not replace E2E)
+    const secpGoldenPassed = await testSecpBip340Row0GoldenVector();
+    const mlGoldenPassed = await testMlDsa44GoldenVectors();
+    const slhGoldenPassed = await testSlhDsaSha2GoldenVectors();
 
     // Summary
     console.log('\n======================================================');
     console.log('Test Summary:');
-    console.log(`  ML-DSA-44: ${results[0] ? '✓ PASSED' : '✗ FAILED'}`);
-    console.log(`  SLH-DSA-SHA2-128s: ${results[1] ? '✓ PASSED' : '✗ FAILED'}`);
-    console.log(`  SLH-DSA-SHA2-128s golden: ${results[2] ? '✓ PASSED' : '✗ FAILED'}`);
+    console.log(`  E2E algorithms: ${e2ePassed}/${e2eTotal} passed`);
+    console.log(`  SECP256K1_SCHNORR: ${e2eResults[0] ? '✓ PASSED' : '✗ FAILED'}`);
+    console.log(`  ML-DSA-44: ${e2eResults[1] ? '✓ PASSED' : '✗ FAILED'}`);
+    console.log(`  SLH-DSA-SHA2-128s: ${e2eResults[2] ? '✓ PASSED' : '✗ FAILED'}`);
+    console.log(`  SECP256K1_SCHNORR BIP-340 row 0: ${secpGoldenPassed ? '✓ PASSED' : '✗ FAILED'}`);
+    console.log(`  ML-DSA-44 golden: ${mlGoldenPassed ? '✓ PASSED' : '✗ FAILED'}`);
+    console.log(`  SLH-DSA-SHA2-128s golden: ${slhGoldenPassed ? '✓ PASSED' : '✗ FAILED'}`);
     console.log('======================================================\n');
 
-    const exitCode = results.every(r => r) ? 0 : 1;
+    const exitCode =
+        e2ePassed === e2eTotal &&
+        secpGoldenPassed &&
+        mlGoldenPassed &&
+        slhGoldenPassed
+            ? 0
+            : 1;
     process.exit(exitCode);
 }
 

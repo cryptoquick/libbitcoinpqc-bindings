@@ -113,6 +113,29 @@ rust-examples:
 	@echo -e "${BLUE}Building and running Rust examples...${NC}"
 	@$(CARGO) run --example basic $(if $(filter 0,$(DEBUG)),--release,)
 
+# WebAssembly targets (require wasm-pack; CC for wasm32 set in .cargo/config.toml)
+WASM_PACK := $(shell command -v wasm-pack 2> /dev/null)
+
+.PHONY: wasm-build
+wasm-build: submodule-check
+	@if [ -z "$(WASM_PACK)" ]; then \
+		echo -e "${RED}wasm-pack not found.${NC}"; \
+		echo -e "${YELLOW}Install with: cargo install wasm-pack${NC}"; \
+		exit 1; \
+	fi
+	@echo -e "${BLUE}Building wasm package with wasm-pack...${NC}"
+	@wasm-pack build
+
+.PHONY: wasm-test
+wasm-test: submodule-check
+	@if [ -z "$(WASM_PACK)" ]; then \
+		echo -e "${RED}wasm-pack not found.${NC}"; \
+		echo -e "${YELLOW}Install with: cargo install wasm-pack${NC}"; \
+		exit 1; \
+	fi
+	@echo -e "${BLUE}Running wasm integration tests with wasm-pack...${NC}"
+	@wasm-pack test --node
+
 # Testing targets
 .PHONY: tests
 tests: test-rust
@@ -123,10 +146,21 @@ test-rust:
 	@$(CARGO) test $(if $(filter 0,$(DEBUG)),--release,)
 
 # Benchmark targets
+.PHONY: sync-vectors
+sync-vectors:
+	@echo -e "${BLUE}Syncing golden vectors from tests/fixtures/...${NC}"
+	@if [ -d "$(HOME)/Projects/surmount/libbitcoinpqc/.git" ]; then \
+		echo -e "${BLUE}C headers -> $(HOME)/Projects/surmount/libbitcoinpqc (standalone upstream)${NC}"; \
+		LIBBITCOINPQC_SRC="$(HOME)/Projects/surmount/libbitcoinpqc" python3 scripts/sync-golden-vectors.py; \
+	else \
+		echo -e "${BLUE}C headers -> libbitcoinpqc submodule (no standalone upstream found)${NC}"; \
+		python3 scripts/sync-golden-vectors.py; \
+	fi
+
 .PHONY: bench
 bench:
 	@echo -e "${BLUE}Running benchmarks...${NC}"
-	@$(CARGO) bench
+	@$(CARGO) bench --features bench
 
 # Documentation targets
 .PHONY: docs
@@ -219,6 +253,9 @@ help:
 	@echo -e "  ${GREEN}nodejs${NC}          - Build NodeJS bindings"
 	@echo -e "  ${GREEN}examples${NC}        - Build and run Rust examples"
 	@echo -e "  ${GREEN}tests${NC}           - Run Rust tests"
+	@echo -e "  ${GREEN}wasm-build${NC}      - Build wasm package (needs wasm-pack)"
+	@echo -e "  ${GREEN}wasm-test${NC}       - Run wasm integration tests (needs wasm-pack)"
+	@echo -e "  ${GREEN}sync-vectors${NC}    - Regenerate golden vectors from JSON fixtures"
 	@echo -e "  ${GREEN}bench${NC}           - Run benchmarks"
 	@echo -e "  ${GREEN}docs${NC}            - Build documentation"
 	@echo -e "  ${GREEN}install${NC}         - Install libraries"

@@ -26,3 +26,7 @@ Thumbs.db
 
 # Test artifacts
 test-node.log
+
+# Fetched build dependencies
+vendor/
+obj/

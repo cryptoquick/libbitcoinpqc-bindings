@@ -1,2 +1,13 @@
 [registries.kellnr-denver-space]
 index = "sparse+https://crates.denver.space/api/v1/crates/"
+
+# wasm32 C deps (secp256k1-sys) need memmove declared; see wasm/secp_memmove_fix.h.
+[env]
+CC_wasm32-unknown-unknown = { value = "wasm/clang-wasm32.sh", relative = true }
+
+[target.wasm32-unknown-unknown]
+runner = "wasm/wasm-test-runner.sh"
+rustflags = [
+  "--cfg", "getrandom_backend=\"wasm_js\"",
+  "-C", "link-arg=-zstack-size=10485760",
+]

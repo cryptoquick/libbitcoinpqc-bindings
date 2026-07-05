@@ -17,6 +17,10 @@ mkdir -p src/c_sources
 echo "Copying main C source file..."
 cp ../libbitcoinpqc/src/bitcoinpqc.c src/c_sources/
 
+echo "Copying secp256k1 Schnorr source files..."
+cp ../libbitcoinpqc/src/secp256k1_schnorr.c src/c_sources/
+cp ../libbitcoinpqc/src/secp256k1_schnorr.h src/c_sources/
+
 echo "Copying ML-DSA source files..."
 cp -r ../libbitcoinpqc/src/ml_dsa src/c_sources/
 
@@ -39,10 +43,21 @@ echo "Copying custom randombytes files..."
 cp ../libbitcoinpqc/src/randombytes_custom.c src/c_sources/
 cp ../libbitcoinpqc/src/randombytes_custom.h src/c_sources/
 
+echo "Fetching libsecp256k1 v0.5.0..."
+SECP_DIR=src/c_sources/secp256k1
+rm -rf "$SECP_DIR"
+git clone --depth 1 --branch v0.5.0 https://github.com/bitcoin-core/secp256k1.git "$SECP_DIR"
+
 # Update include paths in C source files
 echo "Updating include paths..."
-find src/c_sources -name "*.c" -exec sed -i 's|../../dilithium/ref/|../dilithium_ref/|g' {} \;
-find src/c_sources -name "*.c" -exec sed -i 's|../../sphincsplus/ref/|../sphincsplus_ref/|g' {} \;
-find src/c_sources -name "*.c" -exec sed -i 's|../../include/|../include/|g' {} \;
+if sed --version >/dev/null 2>&1; then
+    SED_INPLACE=(-i)
+else
+    # BSD sed (macOS) requires an explicit backup suffix for -i.
+    SED_INPLACE=(-i '')
+fi
+find src/c_sources -name "*.c" -exec sed "${SED_INPLACE[@]}" 's|../../dilithium/ref/|../dilithium_ref/|g' {} \;
+find src/c_sources -name "*.c" -exec sed "${SED_INPLACE[@]}" 's|../../sphincsplus/ref/|../sphincsplus_ref/|g' {} \;
+find src/c_sources -name "*.c" -exec sed "${SED_INPLACE[@]}" 's|../../include/|../include/|g' {} \;
 
 echo "C source files synced successfully!"

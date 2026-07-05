@@ -4,6 +4,7 @@ WebAssembly build of the Bitcoin PQC (Post-Quantum Cryptography) library for bro
 
 ## 1. Features
 
+- ✅ **SECP256K1_SCHNORR** (BIP-340) - Classical Schnorr + x-only public keys
 - ✅ **ML-DSA-44** (Dilithium) - Fast post-quantum signatures
 - ✅ **SLH-DSA-SHA2-128s** (SPHINCS+) - Stateless hash-based signatures
 - ✅ **High-level API** - TypeScript class with keygen, sign, and verify methods
@@ -32,14 +33,20 @@ This section documents the **high-level TypeScript/JavaScript API** (`dist/index
 
 ```typescript
 enum Algorithm {
+    SECP256K1_SCHNORR = 0,   // BIP-340 Schnorr + x-only (classical)
     ML_DSA_44 = 1,           // Dilithium (recommended for most use cases)
-    SLH_DSA_SHA2_128S = 2   // SPHINCS+ (stateless hash-based)
+    SLH_DSA_SHA2_128S = 2    // SPHINCS+ (stateless hash-based)
 }
 ```
 
 ### 3.2. Key Sizes
 
 ```typescript
+// SECP256K1_SCHNORR (BIP-340)
+publicKeySize: 32 bytes
+secretKeySize: 32 bytes
+signatureSize: 64 bytes
+
 // ML-DSA-44
 publicKeySize: 1312 bytes
 secretKeySize: 2560 bytes
@@ -70,7 +77,7 @@ Generate a new key pair.
 
 **Parameters:**
 - `algorithm`: The algorithm to use
-- `randomData`: Random bytes (128 bytes recommended)
+- `randomData`: Entropy for key generation (32 bytes for SECP256K1_SCHNORR, 128 bytes for PQC algorithms)
 
 **Returns:** `KeyPair` object with `publicKey`, `secretKey`, `publicKeySize`, `secretKeySize`
 
@@ -181,5 +188,5 @@ Render index.html in a webserver:
 
 The page allows you to:
 - Select between low-level and high-level APIs
-- Test both ML-DSA-44 and SLH-DSA-SHA2-128s algorithms
+- Test SECP256K1_SCHNORR, ML-DSA-44, and SLH-DSA-SHA2-128s algorithms
 - See performance metrics and test results
