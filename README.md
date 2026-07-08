@@ -1,11 +1,12 @@
 # libbitcoinpqc-bindings
 
-Language bindings (Rust, Python, Node.js) for the [libbitcoinpqc](https://github.com/cryptoquick/libbitcoinpqc) C library. The C library implements two NIST PQC standard signature algorithms for use with [BIP-360](https://github.com/cryptoquick/bips/blob/p2qrh/bip-0360.mediawiki) and the Bitcoin QuBit soft fork:
+Language bindings (Rust, Python, Node.js, WASM) for the [libbitcoinpqc](https://github.com/cryptoquick/libbitcoinpqc) C library. The library implements the three [BIP-360](https://github.com/cryptoquick/bips/blob/p2qrh/bip-0360.mediawiki) signature algorithms for the Bitcoin QuBit soft fork:
 
-1. **ML-DSA-44** (formerly CRYSTALS-Dilithium): A structured lattice-based digital signature scheme that is part of the NIST PQC standardization.
-2. **SLH-DSA-SHA2-128s** (formerly SPHINCS+): A stateless hash-based signature scheme with minimal security assumptions. Uses SHA-256, aligning with Bitcoin's native hash primitive.
+1. **secp256k1 Schnorr** (BIP-340): Classical elliptic-curve signatures with x-only public keys.
+2. **ML-DSA-44** (formerly CRYSTALS-Dilithium): A lattice-based scheme from the NIST PQC standardization.
+3. **SLH-DSA-SHA2-128s** (formerly SPHINCS+): A stateless hash-based scheme using SHA-256, aligned with Bitcoin's native hash primitive.
 
-Notice that all PQC signature algorithms used are certified according to the Federal Information Processing Standards, or FIPS. This should help in the future with native hardware support.
+The two PQC algorithms are FIPS-certified, which should help with future native hardware support.
 
 ## Bitcoin QuBit Integration
 
@@ -17,6 +18,7 @@ This library serves as the cryptographic foundation for the Bitcoin QuBit soft f
 - Safe Rust bindings with memory safety and zero-copy operations
 - NodeJS TypeScript bindings with full type safety
 - Python bindings for easy integration
+- WASM builds for browser and Node.js (`@jbride/bitcoinpqc-wasm`)
 - User-provided entropy (bring your own randomness)
 - Key generation, signing, and verification functions
 - Minimal dependencies
@@ -25,7 +27,7 @@ This library serves as the cryptographic foundation for the Bitcoin QuBit soft f
 
 | Algorithm | Public Key Size | Secret Key Size | Signature Size | Security Level |
 |-----------|----------------|----------------|----------------|----------------|
-| secp256k1 | 32 bytes | 32 bytes | 64 bytes | Classical |
+| SECP256K1_SCHNORR | 32 bytes | 32 bytes | 64 bytes | Classical |
 | ML-DSA-44 | 1,312 bytes | 2,560 bytes | 2,420 bytes | NIST Level 2 |
 | SLH-DSA-SHA2-128s | 32 bytes | 64 bytes | 7,856 bytes | NIST Level 1 |
 
@@ -42,12 +44,12 @@ Phase 2 renames SLH-DSA bindings from SHAKE-128s to SHA2-128s. Update identifier
 
 - Enum wire value `2` is unchanged.
 - Key sizes (32/64/7856 bytes) are unchanged.
-- **Python enum IDs changed:** removed `FN_DSA_512`; `ML_DSA_44=1`, `SLH_DSA_SHA2_128S=2`.
+- **Enum wire values:** `SECP256K1_SCHNORR=0`, `ML_DSA_44=1`, `SLH_DSA_SHA2_128S=2`. Removed `FN_DSA_512`.
 - **Re-keying required:** keys and signatures from SHAKE-128s are cryptographically incompatible with SHA2-128s. Generate new key pairs after upgrading.
 
 ## Security Notes
 
-- This library does not provide its own random number generation. It is essential that the user provide entropy from a cryptographically secure source.
+- This library does not provide its own random number generation. It is essential that the user provide entropy from a cryptographically secure source. See [docs/user_provided_entropy.md](docs/user_provided_entropy.md).
 - Random data is required for key generation, but not for signing. All signatures are deterministic, based on the message and secret key.
 - The implementations are based on reference code from the NIST PQC standardization process and are not production-hardened.
 - Care should be taken to securely manage secret keys in applications.
@@ -187,7 +189,7 @@ verify(&keypair.public_key, message, &signature).unwrap();
 
 ## Python API Usage
 
-[Python bindings are also available for libbitcoinpqc](https://pypi.org/project/bitcoinpqc/0.1.0/), allowing you to use the post-quantum cryptographic algorithms from Python code.
+[Python bindings](https://pypi.org/project/bitcoinpqc/0.4.0/) for all three algorithms.
 
 ### Installation
 
@@ -253,19 +255,19 @@ The Python API mirrors the C API closely, with some Pythonic improvements:
   - `public_key_size(algorithm)` - Get the public key size for an algorithm
   - `secret_key_size(algorithm)` - Get the secret key size for an algorithm
   - `signature_size(algorithm)` - Get the signature size for an algorithm
-  - `keygen(algorithm, random_data)` - Generate a key pair
+  - `keygen(algorithm, random_data)` - Generate a key pair (32 bytes for `SECP256K1_SCHNORR`, 128 for PQC)
   - `sign(algorithm, secret_key, message)` - Sign a message
   - `verify(algorithm, public_key, message, signature)` - Verify a signature
 
 ## NodeJS TypeScript API Usage
 
-[NodeJS TypeScript bindings](https://www.npmjs.com/package/bitcoinpqc) allow you to use post-quantum cryptographic algorithms in JavaScript/TypeScript projects.
+[NodeJS TypeScript bindings](https://www.npmjs.com/package/@jbride/bitcoinpqc) for all three algorithms in JavaScript/TypeScript projects.
 
 ### Installation
 
 ```bash
 # Install the Node.js package
-npm install bitcoinpqc
+npm install @jbride/bitcoinpqc
 ```
 
 ### Prerequisites
@@ -318,11 +320,24 @@ The TypeScript API provides a clean, modern interface:
   - `publicKeySize(algorithm)` - Get the public key size for an algorithm
   - `secretKeySize(algorithm)` - Get the secret key size for an algorithm
   - `signatureSize(algorithm)` - Get the signature size for an algorithm
-  - `generateKeyPair(algorithm, randomData)` - Generate a key pair
+  - `generateKeyPair(algorithm, randomData)` - Generate a key pair (32 bytes of entropy for `SECP256K1_SCHNORR`, 128 bytes for PQC)
   - `sign(secretKey, message)` - Sign a message
   - `verify(publicKey, message, signature)` - Verify a signature
 
 For more details, see the [NodeJS TypeScript bindings README](nodejs/README.md).
+
+## WASM API Usage
+
+Browser and Node.js WASM builds are published as [`@jbride/bitcoinpqc-wasm`](https://www.npmjs.com/package/@jbride/bitcoinpqc-wasm). The Emscripten high-level API covers all three algorithms with the same entropy rules as the native bindings.
+
+```bash
+cd wasm
+npm install
+npm run build
+npm test
+```
+
+See [wasm/README.md](wasm/README.md) for the full API reference and browser testing notes.
 
 ## Acknowledgments
 

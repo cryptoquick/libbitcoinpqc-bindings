@@ -1,25 +1,36 @@
 # BitcoinPQC - NodeJS TypeScript Bindings
 
-TypeScript bindings for the [libbitcoinpqc](https://github.com/bitcoin/libbitcoinpqc) library, which provides post-quantum cryptographic signature algorithms for use with BIP-360 and the Bitcoin QuBit soft fork.
+TypeScript bindings for the [libbitcoinpqc](https://github.com/cryptoquick/libbitcoinpqc) library — secp256k1 Schnorr (BIP-340), ML-DSA-44, and SLH-DSA-SHA2-128s for BIP-360 and the Bitcoin QuBit soft fork.
 
 ## Features
 
 - Full TypeScript support with typings
 - Clean, ergonomic API
-- Compatible with NodeJS 16+
-- Works with both PQC algorithms:
-  - ML-DSA-44 (formerly CRYSTALS-Dilithium)
-  - SLH-DSA-SHA2-128s (formerly SPHINCS+)
+- Compatible with Node.js 16+
+- All three BIP-360 algorithms:
+  - SECP256K1_SCHNORR (BIP-340 Schnorr)
+  - ML-DSA-44 (CRYSTALS-Dilithium)
+  - SLH-DSA-SHA2-128s (SPHINCS+)
 
 ## Installation
 
 ```bash
-npm install bitcoinpqc
+npm install @jbride/bitcoinpqc
 ```
 
 ### Prerequisites
 
-This package requires the native `libbitcoinpqc` library to be installed on your system. See the main [libbitcoinpqc README](https://github.com/bitcoin/libbitcoinpqc) for instructions on installing the C library.
+Build from the bindings repo (recommended):
+
+```bash
+git clone --recurse-submodules https://github.com/cryptoquick/libbitcoinpqc-bindings.git
+cd libbitcoinpqc-bindings/nodejs
+npm ci
+npm run build
+npm test
+```
+
+The native addon compiles `libbitcoinpqc` sources vendored under `nodejs/native/` during `npm run build`.
 
 ## API Usage
 
@@ -135,7 +146,7 @@ Get the signature size for an algorithm.
 
 #### `generateKeyPair(algorithm: Algorithm, randomData: Uint8Array): KeyPair`
 
-Generate a key pair for the specified algorithm. The `randomData` must be at least 128 bytes.
+Generate a key pair for the specified algorithm. Use **32 bytes** of entropy for `SECP256K1_SCHNORR` and **128 bytes** for PQC algorithms.
 
 #### `sign(secretKey: SecretKey, message: Uint8Array): Signature`
 
@@ -155,6 +166,7 @@ Verify a signature using the specified public key. Throws a `PqcError` if verifi
 
 | Algorithm          | Public Key Size | Secret Key Size | Signature Size | Security Level |
 | ------------------ | --------------- | --------------- | -------------- | -------------- |
+| SECP256K1_SCHNORR  | 32 bytes        | 32 bytes        | 64 bytes       | Classical      |
 | ML-DSA-44          | 1,312 bytes     | 2,560 bytes     | 2,420 bytes    | NIST Level 2   |
 | SLH-DSA-SHA2-128s  | 32 bytes        | 64 bytes        | 7,856 bytes    | NIST Level 1   |
 

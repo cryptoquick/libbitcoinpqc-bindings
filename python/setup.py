@@ -15,7 +15,7 @@ if not os.path.exists(os.path.join(here, "README.md")):
 
 setup(
     name="bitcoinpqc",
-    version="0.1.0",
+    version="0.4.0",
     packages=find_packages(),
     description="Python bindings for libbitcoinpqc",
     long_description=long_description,
