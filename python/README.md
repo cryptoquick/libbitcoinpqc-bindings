@@ -1,6 +1,6 @@
 # Python Bindings for libbitcoinpqc
 
-Python bindings for the [libbitcoinpqc](https://github.com/cryptoquick/libbitcoinpqc) C library — secp256k1 Schnorr (BIP-340), ML-DSA-44, and SLH-DSA-SHA2-128s for [BIP-360](https://github.com/cryptoquick/bips/blob/p2qrh/bip-0360.mediawiki) and the Bitcoin QuBit soft fork.
+Python bindings for the [libbitcoinpqc](https://github.com/cryptoquick/libbitcoinpqc) C library — the three BIP 360 (P2MR) tapscript signature algorithms: secp256k1 Schnorr (BIP 340), ML-DSA-44, and SLH-DSA-SHA2-128s. See [BIP 360](https://github.com/bitcoin/bips/blob/master/bip-0360.mediawiki).
 
 ## Supported Algorithms
 

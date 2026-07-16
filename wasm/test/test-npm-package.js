@@ -368,7 +368,7 @@ async function testAlgorithm(algorithm, name) {
 async function runTests() {
     console.log('Bitcoin PQC Library Example (Node.js - High-Level API)');
     console.log('======================================================\n');
-    console.log('This example tests the post-quantum signature algorithms designed for BIP-360 and the Bitcoin QuBit soft fork.');
+    console.log('This example tests the signature algorithms defined for P2MR (BIP 360).');
     console.log('Using the high-level TypeScript wrapper API (index.js).\n');
 
     // Initialize the module

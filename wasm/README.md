@@ -1,6 +1,6 @@
 @jbride/bitcoinpqc-wasm
 
-WebAssembly build of the Bitcoin PQC (Post-Quantum Cryptography) library for browser and Node.js environments.
+WebAssembly build of libbitcoinpqc for browser and Node.js — the three BIP 360 (P2MR) tapscript signature algorithms (classical secp256k1 Schnorr plus two post-quantum options).
 
 ## 1. Features
 
@@ -77,7 +77,7 @@ Generate a new key pair.
 
 **Parameters:**
 - `algorithm`: The algorithm to use
-- `randomData`: Entropy for key generation (32 bytes for SECP256K1_SCHNORR, 128 bytes for PQC algorithms)
+- `randomData`: Entropy for key generation (32 bytes for SECP256K1_SCHNORR, 128 bytes for ML-DSA-44 and SLH-DSA-SHA2-128s)
 
 **Returns:** `KeyPair` object with `publicKey`, `secretKey`, `publicKeySize`, `secretKeySize`
 

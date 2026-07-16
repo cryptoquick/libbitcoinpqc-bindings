@@ -1,13 +1,13 @@
 # BitcoinPQC - NodeJS TypeScript Bindings
 
-TypeScript bindings for the [libbitcoinpqc](https://github.com/cryptoquick/libbitcoinpqc) library — secp256k1 Schnorr (BIP-340), ML-DSA-44, and SLH-DSA-SHA2-128s for BIP-360 and the Bitcoin QuBit soft fork.
+TypeScript bindings for the [libbitcoinpqc](https://github.com/cryptoquick/libbitcoinpqc) library — the three BIP 360 (P2MR) tapscript signature algorithms: secp256k1 Schnorr (BIP 340), ML-DSA-44, and SLH-DSA-SHA2-128s. See [BIP 360](https://github.com/bitcoin/bips/blob/master/bip-0360.mediawiki).
 
 ## Features
 
 - Full TypeScript support with typings
 - Clean, ergonomic API
 - Compatible with Node.js 16+
-- All three BIP-360 algorithms:
+- All three BIP 360 tapscript algorithms:
   - SECP256K1_SCHNORR (BIP-340 Schnorr)
   - ML-DSA-44 (CRYSTALS-Dilithium)
   - SLH-DSA-SHA2-128s (SPHINCS+)
@@ -176,9 +176,9 @@ Verify a signature using the specified public key. Throws a `PqcError` if verifi
 - The implementations are based on reference code from the NIST PQC standardization process and are not production-hardened.
 - Care should be taken to securely manage secret keys in applications.
 
-## BIP-360 Compliance
+## BIP 360 / P2MR compliance
 
-This library implements the TypeScript bindings for cryptographic primitives required by [BIP-360](https://github.com/bitcoin/bips/blob/master/bip-0360.mediawiki), which defines the standard for post-quantum resistant signatures in Bitcoin.
+TypeScript bindings for the tapscript signature overloads specified in [BIP 360 (P2MR)](https://github.com/bitcoin/bips/blob/master/bip-0360.mediawiki).
 
 ## License
 

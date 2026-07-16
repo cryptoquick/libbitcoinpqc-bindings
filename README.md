@@ -1,16 +1,16 @@
 # libbitcoinpqc-bindings
 
-Language bindings (Rust, Python, Node.js, WASM) for the [libbitcoinpqc](https://github.com/cryptoquick/libbitcoinpqc) C library. The library implements the three [BIP-360](https://github.com/cryptoquick/bips/blob/p2qrh/bip-0360.mediawiki) signature algorithms for the Bitcoin QuBit soft fork:
+Language bindings (Rust, Python, Node.js, WASM) for the [libbitcoinpqc](https://github.com/cryptoquick/libbitcoinpqc) C library. [BIP 360](https://github.com/bitcoin/bips/blob/master/bip-0360.mediawiki) defines P2MR tapscript signature overloads; this library implements all three:
 
 1. **secp256k1 Schnorr** (BIP-340): Classical elliptic-curve signatures with x-only public keys.
 2. **ML-DSA-44** (formerly CRYSTALS-Dilithium): A lattice-based scheme from the NIST PQC standardization.
 3. **SLH-DSA-SHA2-128s** (formerly SPHINCS+): A stateless hash-based scheme using SHA-256, aligned with Bitcoin's native hash primitive.
 
-The two PQC algorithms are FIPS-certified, which should help with future native hardware support.
+The two post-quantum algorithms (ML-DSA-44 and SLH-DSA-SHA2-128s) are FIPS-certified, which should help with future native hardware support.
 
-## Bitcoin QuBit Integration
+## P2MR (BIP 360)
 
-This library serves as the cryptographic foundation for the Bitcoin QuBit soft fork, which aims to make Bitcoin's signature verification quantum-resistant through the implementation of BIP-360. QuBit introduces new post-quantum secure transaction types that can protect Bitcoin from potential threats posed by quantum computers.
+[P2MR](https://github.com/bitcoin/bips/blob/master/bip-0360.mediawiki) (Pay-to-Merkle-Root) is the output and tapscript framework in BIP 360. This library supplies the signature primitives for its script-path spends — classical secp256k1 Schnorr plus optional post-quantum schemes. That is separate from broader Bitcoin post-quantum migration work; BIP 360 is specifically about P2MR tapscript overloads.
 
 ## Features
 
@@ -54,9 +54,9 @@ Phase 2 renames SLH-DSA bindings from SHAKE-128s to SHA2-128s. Update identifier
 - The implementations are based on reference code from the NIST PQC standardization process and are not production-hardened.
 - Care should be taken to securely manage secret keys in applications.
 
-## BIP-360 Compliance
+## BIP 360 / P2MR compliance
 
-This library implements the cryptographic primitives required by [BIP-360](https://github.com/bitcoin/bips/blob/master/bip-0360.mediawiki), which defines the standard for post-quantum resistant signatures in Bitcoin. It supports all three recommended algorithms with the specified parameter sets.
+This library implements the three tapscript `OP_CHECKSIG` overloads specified in [BIP 360 (P2MR)](https://github.com/bitcoin/bips/blob/master/bip-0360.mediawiki), with the parameter sets named in the BIP.
 
 ## License
 
@@ -343,4 +343,4 @@ See [wasm/README.md](wasm/README.md) for the full API reference and browser test
 
 - The original NIST PQC competition teams for their reference implementations
 - The NIST PQC standardization process for advancing post-quantum cryptography
-- The Bitcoin QuBit soft fork contributors and BIP-360 contributors
+- The BIP 360 (P2MR) contributors

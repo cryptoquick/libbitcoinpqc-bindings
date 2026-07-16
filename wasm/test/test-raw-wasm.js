@@ -504,7 +504,7 @@ async function testAlgorithm(algorithm, name) {
 async function runTests() {
     console.log('Bitcoin PQC Library Example (Node.js)');
     console.log('=====================================\n');
-    console.log('This example tests the post-quantum signature algorithms designed for BIP-360 and the Bitcoin QuBit soft fork.\n');
+    console.log('This example tests the signature algorithms defined for P2MR (BIP 360).\n');
 
     const results = [];
 
