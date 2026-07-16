@@ -333,20 +333,31 @@ jobs:
           cache: npm
           cache-dependency-path: wasm/package-lock.json
 
-      # Prefer system emcc when present (matches local just emscripten). On
-      # ubuntu-latest install via apt; no version pin — use distro latest.
-      - name: Install Emscripten
+      # Ubuntu's apt `emscripten` is ancient (3.1.x) and rejects -s STACK_SIZE.
+      # Local dev uses system emcc on PATH (Arch 6.x etc.). CI installs current
+      # Emscripten via emsdk `latest` so runners match modern toolchains.
+      - name: Cache Emscripten SDK
+        uses: actions/cache@v4
+        with:
+          path: ~/emsdk
+          key: emsdk-latest-${{ runner.os }}
+
+      - name: Install Emscripten (emsdk latest)
         run: |
-          if command -v emcc >/dev/null 2>&1; then
-            echo "emcc already on PATH: $(command -v emcc)"
-          else
-            sudo apt-get update
-            sudo apt-get install -y emscripten
+          if [ ! -f "$HOME/emsdk/emsdk" ]; then
+            git clone https://github.com/emscripten-core/emsdk.git "$HOME/emsdk"
           fi
+          cd "$HOME/emsdk"
+          ./emsdk install latest
+          ./emsdk activate latest
+          # shellcheck disable=SC1091
+          source ./emsdk_env.sh
           emcc --version | head -1
 
       - name: Build and test Emscripten wasm package (3-algorithm E2E)
         run: |
+          # shellcheck disable=SC1091
+          source "$HOME/emsdk/emsdk_env.sh"
           cd wasm
           npm ci
           npm run build
