@@ -7,8 +7,24 @@
 
 // Type definitions
 export enum Algorithm {
+    /** BIP-340 Schnorr + X-Only - Elliptic Curve Digital Signature Algorithm */
+    SECP256K1_SCHNORR = 0,
+    /** ML-DSA-44 (CRYSTALS-Dilithium) - Lattice-based signature scheme */
     ML_DSA_44 = 1,
-    SLH_DSA_SHAKE_128S = 2,
+    /** SLH-DSA-SHA2-128s (SPHINCS+) - Hash-based signature scheme */
+    SLH_DSA_SHA2_128S = 2,
+}
+
+const MIN_PQC_KEYGEN_ENTROPY = 128;
+const MIN_SECP_KEYGEN_ENTROPY = 32;
+const MIN_SECP_MESSAGE_LENGTH = 32;
+
+function minKeygenEntropySize(algorithm: Algorithm): number {
+    return algorithm === Algorithm.SECP256K1_SCHNORR ? MIN_SECP_KEYGEN_ENTROPY : MIN_PQC_KEYGEN_ENTROPY;
+}
+
+function algorithmName(algorithm: Algorithm): string {
+    return Algorithm[algorithm] ?? String(algorithm);
 }
 
 export interface KeyPair {
@@ -190,11 +206,18 @@ export class BitcoinPQC {
     /**
      * Generate a key pair
      * @param algorithm The algorithm to use
-     * @param randomData Random bytes for key generation (128 bytes recommended)
+     * @param randomData Entropy for key generation (32 bytes for SECP256K1_SCHNORR, 128 for PQC)
      */
     generateKeypair(algorithm: Algorithm, randomData: Uint8Array): KeyPair {
         this.ensureInitialized();
         const mod = this.module!;
+
+        const minEntropy = minKeygenEntropySize(algorithm);
+        if (randomData.length < minEntropy) {
+            throw new Error(
+                `Random data must be at least ${minEntropy} bytes for ${algorithmName(algorithm)}`
+            );
+        }
 
         const randomPtr = mod._malloc(randomData.length);
         mod.HEAP8.set(randomData, randomPtr);
@@ -221,9 +244,12 @@ export class BitcoinPQC {
         const publicKeySize = this.readUint32(keypairPtr + 12);
         const secretKeySize = this.readUint32(keypairPtr + 16);
 
-        // Read keys from memory
+        // Read keys from memory (copy before freeing native allocations)
         const publicKey = new Uint8Array(mod.HEAP8.subarray(publicKeyPtr, publicKeyPtr + publicKeySize));
         const secretKey = new Uint8Array(mod.HEAP8.subarray(secretKeyPtr, secretKeyPtr + secretKeySize));
+
+        mod.ccall('bitcoin_pqc_keypair_free', 'void', ['number'], [keypairPtr]);
+        mod._free(keypairPtr);
 
         return {
             publicKey,
@@ -242,6 +268,12 @@ export class BitcoinPQC {
     sign(secretKey: Uint8Array, message: Uint8Array, algorithm: Algorithm): Signature {
         this.ensureInitialized();
         const mod = this.module!;
+
+        if (algorithm === Algorithm.SECP256K1_SCHNORR && message.length < MIN_SECP_MESSAGE_LENGTH) {
+            throw new Error(
+                'Message must be at least 32 bytes for SECP256K1_SCHNORR (BIP-340 message hash)'
+            );
+        }
 
         const secretKeyPtr = mod._malloc(secretKey.length);
         mod.HEAP8.set(secretKey, secretKeyPtr);
@@ -283,6 +315,9 @@ export class BitcoinPQC {
 
         const signature = new Uint8Array(mod.HEAP8.subarray(signatureDataPtr, signatureDataPtr + signatureSize));
 
+        mod.ccall('bitcoin_pqc_signature_free', 'void', ['number'], [signaturePtr]);
+        mod._free(signaturePtr);
+
         return {
             bytes: signature,
             size: signatureSize,
@@ -299,6 +334,12 @@ export class BitcoinPQC {
     verify(publicKey: Uint8Array, message: Uint8Array, signature: Signature, algorithm: Algorithm): boolean {
         this.ensureInitialized();
         const mod = this.module!;
+
+        if (algorithm === Algorithm.SECP256K1_SCHNORR && message.length < MIN_SECP_MESSAGE_LENGTH) {
+            throw new Error(
+                'Message must be at least 32 bytes for SECP256K1_SCHNORR (BIP-340 message hash)'
+            );
+        }
 
         const publicKeyPtr = mod._malloc(publicKey.length);
         mod.HEAP8.set(publicKey, publicKeyPtr);

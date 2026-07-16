@@ -82,9 +82,8 @@ def _find_library():
 class Algorithm(enum.IntEnum):
     """Algorithm types from bitcoin_pqc_algorithm_t."""
     SECP256K1_SCHNORR = 0
-    FN_DSA_512 = 1  # FALCON-512
-    ML_DSA_44 = 2   # CRYSTALS-Dilithium Level I
-    SLH_DSA_SHAKE_128S = 3  # SPHINCS+-128s
+    ML_DSA_44 = 1  # CRYSTALS-Dilithium Level I
+    SLH_DSA_SHA2_128S = 2  # SLH-DSA-SHA2-128s (SPHINCS+)
 
 
 class Error(enum.IntEnum):
@@ -173,27 +172,24 @@ if _MOCK_MODE:
         def _bitcoin_pqc_public_key_size(self, algorithm):
             sizes = {
                 0: 32,  # SECP256K1_SCHNORR
-                1: 897,  # FN_DSA_512
-                2: 1312,  # ML_DSA_44
-                3: 32,  # SLH_DSA_SHAKE_128S
+                1: 1312,  # ML_DSA_44
+                2: 32,  # SLH_DSA_SHA2_128S
             }
             return sizes.get(algorithm, 32)
 
         def _bitcoin_pqc_secret_key_size(self, algorithm):
             sizes = {
                 0: 32,  # SECP256K1_SCHNORR
-                1: 1281,  # FN_DSA_512
-                2: 2528,  # ML_DSA_44
-                3: 64,  # SLH_DSA_SHAKE_128S
+                1: 2560,  # ML_DSA_44
+                2: 64,  # SLH_DSA_SHA2_128S
             }
             return sizes.get(algorithm, 64)
 
         def _bitcoin_pqc_signature_size(self, algorithm):
             sizes = {
                 0: 64,  # SECP256K1_SCHNORR
-                1: 666,  # FN_DSA_512
-                2: 2420,  # ML_DSA_44
-                3: 7856,  # SLH_DSA_SHAKE_128S
+                1: 2420,  # ML_DSA_44
+                2: 7856,  # SLH_DSA_SHA2_128S
             }
             return sizes.get(algorithm, 64)
 
@@ -465,10 +461,20 @@ def signature_size(algorithm: Algorithm) -> int:
     return _lib.bitcoin_pqc_signature_size(algorithm)
 
 
+def _min_keygen_entropy_size(algorithm: Algorithm) -> int:
+    """Minimum entropy length required for key generation."""
+    if algorithm == Algorithm.SECP256K1_SCHNORR:
+        return 32
+    return 128
+
+
 def keygen(algorithm: Algorithm, random_data: bytes) -> KeyPair:
     """Generate a key pair."""
-    if len(random_data) < 128:
-        raise ValueError("Random data must be at least 128 bytes")
+    min_size = _min_keygen_entropy_size(algorithm)
+    if len(random_data) < min_size:
+        raise ValueError(
+            f"Random data must be at least {min_size} bytes for {algorithm.name}"
+        )
 
     random_buffer = (ctypes.c_uint8 * len(random_data)).from_buffer_copy(random_data)
     keypair = _CKeyPair()
@@ -488,6 +494,11 @@ def keygen(algorithm: Algorithm, random_data: bytes) -> KeyPair:
 
 def sign(algorithm: Algorithm, secret_key: bytes, message: bytes) -> Signature:
     """Sign a message."""
+    if algorithm == Algorithm.SECP256K1_SCHNORR and len(message) < 32:
+        raise ValueError(
+            "Message must be at least 32 bytes for SECP256K1_SCHNORR (BIP-340 message hash)"
+        )
+
     secret_buffer = (ctypes.c_uint8 * len(secret_key)).from_buffer_copy(secret_key)
     message_buffer = (ctypes.c_uint8 * len(message)).from_buffer_copy(message)
     signature = _CSignature()
@@ -509,6 +520,11 @@ def sign(algorithm: Algorithm, secret_key: bytes, message: bytes) -> Signature:
 
 def verify(algorithm: Algorithm, public_key: bytes, message: bytes, signature: Union[Signature, bytes]) -> bool:
     """Verify a signature."""
+    if algorithm == Algorithm.SECP256K1_SCHNORR and len(message) < 32:
+        raise ValueError(
+            "Message must be at least 32 bytes for SECP256K1_SCHNORR (BIP-340 message hash)"
+        )
+
     public_buffer = (ctypes.c_uint8 * len(public_key)).from_buffer_copy(public_key)
     message_buffer = (ctypes.c_uint8 * len(message)).from_buffer_copy(message)
 

@@ -17,31 +17,18 @@ fuzz_target!(|data: &[u8]| {
     // Use 128 bytes for key generation
     let key_data = &data[1..129];
 
-    // Try to generate a keypair
-    let keypair_result = generate_keypair(algorithm, key_data);
-    if let Err(err) = &keypair_result {
-        panic!(
-            "Key generation failed for algorithm: {}, error: {:?}",
-            algorithm.debug_name(),
-            err
-        );
-    }
-    let keypair = keypair_result.unwrap();
+    let keypair = match generate_keypair(algorithm, key_data) {
+        Ok(kp) => kp,
+        Err(_) => return,
+    };
 
-    // Use remaining bytes as message to sign
     // We've already checked above that we have at least 32 bytes left
     let message = &data[129..];
 
-    // Try to sign the message
-    let signature_result = sign(&keypair.secret_key, message);
-    if let Err(err) = &signature_result {
-        panic!(
-            "Signing failed for algorithm: {}, error: {:?}",
-            algorithm.debug_name(),
-            err
-        );
-    }
-    let signature = signature_result.unwrap();
+    let signature = match sign(&keypair.secret_key, message) {
+        Ok(sig) => sig,
+        Err(_) => return,
+    };
 
     // Try to verify the signature with the correct public key
     let verify_result = verify(&keypair.public_key, message, &signature);

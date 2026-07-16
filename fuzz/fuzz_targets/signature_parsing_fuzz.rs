@@ -3,8 +3,6 @@
 use bitcoinpqc::{algorithm_from_index, Signature};
 use libfuzzer_sys::fuzz_target;
 
-const NUM_ALGORITHMS: u8 = 3; // SECP256K1_SCHNORR, ML_DSA_44, SLH_DSA_128S
-
 fuzz_target!(|data: &[u8]| {
     if data.is_empty() {
         return; // Need at least one byte for algorithm selection

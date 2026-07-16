@@ -5,7 +5,7 @@ use std::time::Instant;
 fn main() {
     println!("Bitcoin PQC Library Example");
     println!("==========================\n");
-    println!("This example tests the post-quantum signature algorithms designed for BIP-360 and the Bitcoin QuBit soft fork.\n");
+    println!("This example tests the signature algorithms defined for P2MR (BIP 360).\n");
 
     // Generate random data for key generation
     let mut random_data = vec![0u8; 128];
@@ -13,7 +13,11 @@ fn main() {
 
     // Test each algorithm
     test_algorithm(Algorithm::ML_DSA_44, "ML-DSA-44", &random_data);
-    test_algorithm(Algorithm::SLH_DSA_128S, "SLH-DSA-Shake-128s", &random_data);
+    test_algorithm(
+        Algorithm::SLH_DSA_SHA2_128S,
+        "SLH-DSA-SHA2-128s",
+        &random_data,
+    );
 }
 
 fn test_algorithm(algorithm: Algorithm, name: &str, random_data: &[u8]) {

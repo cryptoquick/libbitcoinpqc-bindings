@@ -1,11 +1,12 @@
-@jbride/bitcoinpqc-wasm
+bitcoinpqc
 
-WebAssembly build of the Bitcoin PQC (Post-Quantum Cryptography) library for browser and Node.js environments.
+WebAssembly build of libbitcoinpqc for browser and Node.js — the three BIP 360 (P2MR) tapscript signature algorithms (classical secp256k1 Schnorr plus two post-quantum options).
 
 ## 1. Features
 
+- ✅ **SECP256K1_SCHNORR** (BIP-340) - Classical Schnorr + x-only public keys
 - ✅ **ML-DSA-44** (Dilithium) - Fast post-quantum signatures
-- ✅ **SLH-DSA-Shake-128s** (SPHINCS+) - Stateless hash-based signatures
+- ✅ **SLH-DSA-SHA2-128s** (SPHINCS+) - Stateless hash-based signatures
 - ✅ **High-level API** - TypeScript class with keygen, sign, and verify methods
 - ✅ **Low-level API** - Direct WASM `ccall`/`cwrap` access for advanced usage
 - ✅ **Browser support** - Works in modern browsers with WebAssembly
@@ -15,8 +16,14 @@ WebAssembly build of the Bitcoin PQC (Post-Quantum Cryptography) library for bro
 ## 2. Installation
 
 ```bash
-npm install @jbride/bitcoinpqc-wasm
+npm install bitcoinpqc
 ```
+
+## Breaking Changes (Phase 2)
+
+- Rename `SLH_DSA_SHAKE_128S` → `SLH_DSA_SHA2_128S` (enum wire value `2` unchanged)
+- WASM build now uses SHA2 SPHINCS+ sources (`hash_sha2.c`, `thash_sha2_simple.c`, `sha2.c`)
+- **Re-keying required:** SHAKE-128s keys/signatures are incompatible with SHA2-128s
 
 ## 3. API Reference
 
@@ -26,20 +33,26 @@ This section documents the **high-level TypeScript/JavaScript API** (`dist/index
 
 ```typescript
 enum Algorithm {
+    SECP256K1_SCHNORR = 0,   // BIP-340 Schnorr + x-only (classical)
     ML_DSA_44 = 1,           // Dilithium (recommended for most use cases)
-    SLH_DSA_SHAKE_128S = 2   // SPHINCS+ (stateless hash-based)
+    SLH_DSA_SHA2_128S = 2    // SPHINCS+ (stateless hash-based)
 }
 ```
 
 ### 3.2. Key Sizes
 
 ```typescript
+// SECP256K1_SCHNORR (BIP-340)
+publicKeySize: 32 bytes
+secretKeySize: 32 bytes
+signatureSize: 64 bytes
+
 // ML-DSA-44
 publicKeySize: 1312 bytes
 secretKeySize: 2560 bytes
 signatureSize: 2420 bytes
 
-// SLH-DSA-Shake-128s
+// SLH-DSA-SHA2-128s
 publicKeySize: 32 bytes
 secretKeySize: 64 bytes
 signatureSize: 7856 bytes
@@ -64,7 +77,7 @@ Generate a new key pair.
 
 **Parameters:**
 - `algorithm`: The algorithm to use
-- `randomData`: Random bytes (128 bytes recommended)
+- `randomData`: Entropy for key generation (32 bytes for SECP256K1_SCHNORR, 128 bytes for ML-DSA-44 and SLH-DSA-SHA2-128s)
 
 **Returns:** `KeyPair` object with `publicKey`, `secretKey`, `publicKeySize`, `secretKeySize`
 
@@ -103,18 +116,23 @@ If you want to build the WASM module from source:
 
 ### 4.1. Prerequisites
 
-1. Install Emscripten SDK (anywhere on your local filesystem):
+1. **Emscripten (`emcc`) on your PATH** — any current install is fine (no version pin). Examples:
+
 ```bash
-git clone https://github.com/emscripten-core/emsdk.git
-cd emsdk
-./emsdk install latest
-./emsdk activate latest
-source ./emsdk_env.sh
+# Arch / Manjaro
+pacman -S emscripten
+
+# Nix
+nix-shell -p emscripten
+
+# Debian / Ubuntu
+apt install emscripten
 ```
 
-2. At the terminal, move back into the `wasm` directory of this project
+Confirm with `emcc --version`.
 
-3. Install dependencies:
+2. From the `wasm` directory of this project, install npm dependencies:
+
 ```bash
 npm install
 ```
@@ -175,5 +193,5 @@ Render index.html in a webserver:
 
 The page allows you to:
 - Select between low-level and high-level APIs
-- Test both ML-DSA-44 and SLH-DSA-Shake-128s algorithms
+- Test SECP256K1_SCHNORR, ML-DSA-44, and SLH-DSA-SHA2-128s algorithms
 - See performance metrics and test results

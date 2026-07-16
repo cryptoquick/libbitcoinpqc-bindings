@@ -7,12 +7,12 @@ const int SECP256K1_SK_SIZE = 32;
 const int SECP256K1_SIG_SIZE = 64;
 
 const int ML_DSA_44_PK_SIZE = 1312;
-const int ML_DSA_44_SK_SIZE = 2528;
+const int ML_DSA_44_SK_SIZE = 2560;
 const int ML_DSA_44_SIG_SIZE = 2420;
 
-const int SLH_DSA_SHAKE_128S_PK_SIZE = 32;
-const int SLH_DSA_SHAKE_128S_SK_SIZE = 64;
-const int SLH_DSA_SHAKE_128S_SIG_SIZE = 7856;
+const int SLH_DSA_SHA2_128S_PK_SIZE = 32;
+const int SLH_DSA_SHA2_128S_SK_SIZE = 64;
+const int SLH_DSA_SHA2_128S_SIG_SIZE = 7856;
 
 // Error codes
 const int OK = 0;
@@ -40,7 +40,7 @@ Napi::Value GetPublicKeySize(const Napi::CallbackInfo &info) {
     size = ML_DSA_44_PK_SIZE;
     break;
   case 2:
-    size = SLH_DSA_SHAKE_128S_PK_SIZE;
+    size = SLH_DSA_SHA2_128S_PK_SIZE;
     break;
   default:
     size = 0;
@@ -68,7 +68,7 @@ Napi::Value GetSecretKeySize(const Napi::CallbackInfo &info) {
     size = ML_DSA_44_SK_SIZE;
     break;
   case 2:
-    size = SLH_DSA_SHAKE_128S_SK_SIZE;
+    size = SLH_DSA_SHA2_128S_SK_SIZE;
     break;
   default:
     size = 0;
@@ -96,7 +96,7 @@ Napi::Value GetSignatureSize(const Napi::CallbackInfo &info) {
     size = ML_DSA_44_SIG_SIZE;
     break;
   case 2:
-    size = SLH_DSA_SHAKE_128S_SIG_SIZE;
+    size = SLH_DSA_SHA2_128S_SIG_SIZE;
     break;
   default:
     size = 0;
@@ -141,8 +141,8 @@ Napi::Value GenerateKeypair(const Napi::CallbackInfo &info) {
     skSize = ML_DSA_44_SK_SIZE;
     break;
   case 2:
-    pkSize = SLH_DSA_SHAKE_128S_PK_SIZE;
-    skSize = SLH_DSA_SHAKE_128S_SK_SIZE;
+    pkSize = SLH_DSA_SHA2_128S_PK_SIZE;
+    skSize = SLH_DSA_SHA2_128S_SK_SIZE;
     break;
   default:
     return Napi::Number::New(env, BAD_ARGUMENT);
@@ -203,8 +203,8 @@ Napi::Value SignMessage(const Napi::CallbackInfo &info) {
     expectedSkSize = ML_DSA_44_SK_SIZE;
     break;
   case 2:
-    sigSize = SLH_DSA_SHAKE_128S_SIG_SIZE;
-    expectedSkSize = SLH_DSA_SHAKE_128S_SK_SIZE;
+    sigSize = SLH_DSA_SHA2_128S_SIG_SIZE;
+    expectedSkSize = SLH_DSA_SHA2_128S_SK_SIZE;
     break;
   default:
     return Napi::Number::New(env, BAD_ARGUMENT);
@@ -268,8 +268,8 @@ Napi::Value VerifySignature(const Napi::CallbackInfo &info) {
     expectedSigSize = ML_DSA_44_SIG_SIZE;
     break;
   case 2:
-    expectedPkSize = SLH_DSA_SHAKE_128S_PK_SIZE;
-    expectedSigSize = SLH_DSA_SHAKE_128S_SIG_SIZE;
+    expectedPkSize = SLH_DSA_SHA2_128S_PK_SIZE;
+    expectedSigSize = SLH_DSA_SHA2_128S_SIG_SIZE;
     break;
   default:
     return Napi::Number::New(env, BAD_ARGUMENT);

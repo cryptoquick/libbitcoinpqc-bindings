@@ -78,6 +78,20 @@ cargo bench -- verification
 cargo bench -- sizes
 ```
 
+## CI / faster runs
+
+When `CI=true` is set (as in the GitHub Actions benchmark job), criterion
+`measurement_time` is shortened to 3 seconds per group for faster informational
+runs. Local development uses 10 seconds by default.
+
+SLH-DSA-SHA2-128S benchmark groups additionally use `sample_size(3)` under
+`CI=true` (10 locally) because signing and verification are much slower than
+ML-DSA-44 or secp256k1.
+
+```
+CI=true cargo bench --features bench -- --noplot
+```
+
 ## Troubleshooting
 
 If you encounter any issues with a specific algorithm, try running only that algorithm's benchmarks:

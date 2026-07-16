@@ -1,0 +1,4 @@
+[submodule "libbitcoinpqc"]
+	path = libbitcoinpqc
+	url = https://github.com/cryptoquick/libbitcoinpqc.git
+	branch = main

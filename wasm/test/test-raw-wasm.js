@@ -9,7 +9,24 @@
  * for debugging without browser overhead.
  */
 
-const path = require('path');
+const {
+    ML_DSA_44_EXPECTED_PK,
+    ML_DSA_44_EXPECTED_SIG,
+    ML_DSA_44_TEST_ENTROPY,
+    ML_DSA_44_TEST_MESSAGE,
+} = require('../../tests/vectors/wasm/ml_dsa_44_golden_vectors');
+const {
+    SECP256K1_BIP340_ROW0_EXPECTED_PK,
+    SECP256K1_BIP340_ROW0_EXPECTED_SIG,
+    SECP256K1_BIP340_ROW0_MESSAGE,
+    SECP256K1_BIP340_ROW0_SECRET,
+} = require('../../tests/vectors/wasm/secp256k1_bip340_golden_vectors');
+const {
+    SLH_DSA_SHA2_EXPECTED_PK,
+    SLH_DSA_SHA2_EXPECTED_SIG,
+    SLH_DSA_SHA2_TEST_ENTROPY,
+    SLH_DSA_SHA2_TEST_MESSAGE,
+} = require('../../tests/vectors/wasm/slh_dsa_sha2_golden_vectors');
 
 // Load the WASM module using require (Emscripten generates CommonJS-compatible code)
 let Module;
@@ -20,7 +37,7 @@ try {
 } catch (error) {
     console.error('Failed to load WASM module:', error);
     console.error('Make sure you have built the WASM module first:');
-    console.error('  cd wasm && ./bin/build.sh');
+    console.error('  cd wasm && npm run build');
     process.exit(1);
 }
 
@@ -48,12 +65,48 @@ function getKeySizes(algorithm) {
     return { pkSize, skSize, sigSize };
 }
 
+// PQC E2E messages (aligned with Node.js / Python bindings)
+const PQC_TEST_MESSAGE = 'Hello, Bitcoin PQC!';
+const PQC_TAMPERED_MESSAGE = 'Bad message!';
+
 function generateRandomBytes(length) {
     const array = new Uint8Array(length);
     const crypto = require('crypto');
     const randomBytes = crypto.randomBytes(length);
     array.set(randomBytes);
     return array;
+}
+
+function keygenEntropySize(algorithm) {
+    return algorithm === 0 ? 32 : 128;
+}
+
+function testMessageForAlgorithm(algorithm) {
+    if (algorithm === 0) {
+        return Buffer.from(SECP256K1_BIP340_ROW0_MESSAGE);
+    }
+    return Buffer.from(PQC_TEST_MESSAGE, 'utf8');
+}
+
+function tamperedMessageForAlgorithm(algorithm, message) {
+    if (algorithm === 0) {
+        const tampered = Buffer.from(message);
+        tampered[31] ^= 0x01;
+        return tampered;
+    }
+    return Buffer.from(PQC_TAMPERED_MESSAGE, 'utf8');
+}
+
+function bytesEqual(a, b) {
+    if (a.length !== b.length) {
+        return false;
+    }
+    for (let i = 0; i < a.length; i++) {
+        if (a[i] !== b[i]) {
+            return false;
+        }
+    }
+    return true;
 }
 
 function generateKeypair(algorithm, randomData) {
@@ -185,6 +238,172 @@ function verifySignature(algorithm, publicKey, message, signature) {
     return result === 0;
 }
 
+async function testSecpBip340Row0GoldenVector() {
+    console.log('\nTesting SECP256K1_SCHNORR BIP-340 row 0 golden vector:');
+    console.log('--------------------------------------------------------');
+
+    try {
+        const keypair = generateKeypair(0, SECP256K1_BIP340_ROW0_SECRET);
+
+        if (!bytesEqual(keypair.publicKey, SECP256K1_BIP340_ROW0_EXPECTED_PK)) {
+            console.log('ERROR: Public key does not match BIP-340 row 0');
+            Module.ccall('bitcoin_pqc_keypair_free', null, ['number'], [keypair.keypairPtr]);
+            return false;
+        }
+
+        if (!bytesEqual(keypair.secretKey, SECP256K1_BIP340_ROW0_SECRET)) {
+            console.log('ERROR: Secret key does not match BIP-340 row 0');
+            Module.ccall('bitcoin_pqc_keypair_free', null, ['number'], [keypair.keypairPtr]);
+            return false;
+        }
+
+        const message = Buffer.from(SECP256K1_BIP340_ROW0_MESSAGE);
+        const signatureData = signMessage(0, keypair.secretKey, message);
+
+        if (!bytesEqual(signatureData.signature, SECP256K1_BIP340_ROW0_EXPECTED_SIG)) {
+            console.log('ERROR: Signature does not match BIP-340 row 0 golden vector');
+            Module.ccall('bitcoin_pqc_keypair_free', null, ['number'], [keypair.keypairPtr]);
+            Module.ccall('bitcoin_pqc_signature_free', null, ['number'], [signatureData.signaturePtr]);
+            return false;
+        }
+
+        const verified = verifySignature(
+            0,
+            keypair.publicKey,
+            message,
+            signatureData.signature
+        );
+
+        if (!verified) {
+            console.log('ERROR: BIP-340 row 0 signature verification failed');
+            Module.ccall('bitcoin_pqc_keypair_free', null, ['number'], [keypair.keypairPtr]);
+            Module.ccall('bitcoin_pqc_signature_free', null, ['number'], [signatureData.signaturePtr]);
+            return false;
+        }
+
+        const tampered = Buffer.from(message);
+        tampered[31] ^= 0x01;
+        const tamperedVerified = verifySignature(
+            0,
+            keypair.publicKey,
+            tampered,
+            signatureData.signature
+        );
+
+        if (tamperedVerified) {
+            console.log('ERROR: Tampered BIP-340 message incorrectly verified');
+            Module.ccall('bitcoin_pqc_keypair_free', null, ['number'], [keypair.keypairPtr]);
+            Module.ccall('bitcoin_pqc_signature_free', null, ['number'], [signatureData.signaturePtr]);
+            return false;
+        }
+
+        Module.ccall('bitcoin_pqc_keypair_free', null, ['number'], [keypair.keypairPtr]);
+        Module.ccall('bitcoin_pqc_signature_free', null, ['number'], [signatureData.signaturePtr]);
+
+        console.log('✓ BIP-340 row 0 golden vector passed!\n');
+        return true;
+    } catch (error) {
+        console.error(`❌ BIP-340 golden vector test failed: ${error.message}`);
+        return false;
+    }
+}
+
+async function testMlDsa44GoldenVectors() {
+    console.log('\nTesting ML-DSA-44 golden vectors:');
+    console.log('-----------------------------------');
+
+    try {
+        const keypair = generateKeypair(1, ML_DSA_44_TEST_ENTROPY);
+
+        if (!bytesEqual(keypair.publicKey, ML_DSA_44_EXPECTED_PK)) {
+            console.log('ERROR: ML-DSA-44 public key does not match golden vector');
+            Module.ccall('bitcoin_pqc_keypair_free', null, ['number'], [keypair.keypairPtr]);
+            return false;
+        }
+
+        const message = Buffer.from(ML_DSA_44_TEST_MESSAGE, 'utf8');
+        const signatureData = signMessage(1, keypair.secretKey, message);
+
+        if (!bytesEqual(signatureData.signature, ML_DSA_44_EXPECTED_SIG)) {
+            console.log('ERROR: ML-DSA-44 signature does not match golden vector');
+            Module.ccall('bitcoin_pqc_keypair_free', null, ['number'], [keypair.keypairPtr]);
+            Module.ccall('bitcoin_pqc_signature_free', null, ['number'], [signatureData.signaturePtr]);
+            return false;
+        }
+
+        const verified = verifySignature(
+            1,
+            keypair.publicKey,
+            message,
+            signatureData.signature
+        );
+
+        if (!verified) {
+            console.log('ERROR: ML-DSA-44 golden signature verification failed');
+            Module.ccall('bitcoin_pqc_keypair_free', null, ['number'], [keypair.keypairPtr]);
+            Module.ccall('bitcoin_pqc_signature_free', null, ['number'], [signatureData.signaturePtr]);
+            return false;
+        }
+
+        Module.ccall('bitcoin_pqc_keypair_free', null, ['number'], [keypair.keypairPtr]);
+        Module.ccall('bitcoin_pqc_signature_free', null, ['number'], [signatureData.signaturePtr]);
+
+        console.log('✓ ML-DSA-44 golden vectors passed!\n');
+        return true;
+    } catch (error) {
+        console.error(`❌ ML-DSA-44 golden vector test failed: ${error.message}`);
+        return false;
+    }
+}
+
+async function testSlhDsaSha2GoldenVectors() {
+    console.log('\nTesting SLH-DSA-SHA2-128s golden vectors:');
+    console.log('-------------------------------------------');
+
+    try {
+        const keypair = generateKeypair(2, SLH_DSA_SHA2_TEST_ENTROPY);
+
+        if (!bytesEqual(keypair.publicKey, SLH_DSA_SHA2_EXPECTED_PK)) {
+            console.log('ERROR: Public key does not match golden vector');
+            Module.ccall('bitcoin_pqc_keypair_free', null, ['number'], [keypair.keypairPtr]);
+            return false;
+        }
+
+        const message = Buffer.from(SLH_DSA_SHA2_TEST_MESSAGE, 'utf8');
+        const signatureData = signMessage(2, keypair.secretKey, message);
+
+        if (!bytesEqual(signatureData.signature, SLH_DSA_SHA2_EXPECTED_SIG)) {
+            console.log('ERROR: Signature does not match golden vector');
+            Module.ccall('bitcoin_pqc_keypair_free', null, ['number'], [keypair.keypairPtr]);
+            Module.ccall('bitcoin_pqc_signature_free', null, ['number'], [signatureData.signaturePtr]);
+            return false;
+        }
+
+        const verified = verifySignature(
+            2,
+            keypair.publicKey,
+            message,
+            signatureData.signature
+        );
+
+        if (!verified) {
+            console.log('ERROR: Golden signature verification failed');
+            Module.ccall('bitcoin_pqc_keypair_free', null, ['number'], [keypair.keypairPtr]);
+            Module.ccall('bitcoin_pqc_signature_free', null, ['number'], [signatureData.signaturePtr]);
+            return false;
+        }
+
+        Module.ccall('bitcoin_pqc_keypair_free', null, ['number'], [keypair.keypairPtr]);
+        Module.ccall('bitcoin_pqc_signature_free', null, ['number'], [signatureData.signaturePtr]);
+
+        console.log('✓ Golden vectors passed!\n');
+        return true;
+    } catch (error) {
+        console.error(`❌ Golden vector test failed: ${error.message}`);
+        return false;
+    }
+}
+
 // Test function
 async function testAlgorithm(algorithm, name) {
     console.log(`\nTesting ${name} algorithm:`);
@@ -196,16 +415,19 @@ async function testAlgorithm(algorithm, name) {
         console.log(`Secret key size: ${skSize} bytes`);
         console.log(`Signature size: ${sigSize} bytes`);
 
-        const randomData = generateRandomBytes(128);
+        const randomData = generateRandomBytes(keygenEntropySize(algorithm));
 
         const keygenStart = Date.now();
         const keypair = generateKeypair(algorithm, randomData);
         const keygenDuration = Date.now() - keygenStart;
         console.log(`Key generation time: ${keygenDuration} ms`);
 
-        const messageText = 'This is a test message for PQC signature verification';
-        const message = Buffer.from(messageText, 'utf8');
-        console.log(`Message to sign: "${messageText}"`);
+        const message = testMessageForAlgorithm(algorithm);
+        if (algorithm === 0) {
+            console.log('Message to sign: BIP-340 row 0 (32 zero bytes)');
+        } else {
+            console.log(`Message to sign: "${message.toString('utf8')}"`);
+        }
         console.log(`Message length: ${message.length} bytes`);
 
         const signStart = Date.now();
@@ -219,16 +441,6 @@ async function testAlgorithm(algorithm, name) {
             const signDuration = Date.now() - signStart;
             console.log(`Signing failed after ${signDuration} ms`);
             console.log(`Error: ${error.message}`);
-            if (algorithm === 2) {
-                console.log('');
-                console.log('⚠️  NOTE: SLH-DSA-SHAKE-128s signing is currently experiencing');
-                console.log('   issues when compiled to WebAssembly. This appears to be a');
-                console.log('   bug in the SPHINCS+ reference implementation when compiled');
-                console.log('   to WASM. ML-DSA-44 (Dilithium) works correctly.');
-                console.log('');
-                console.log('   Key generation succeeded, but signing failed.');
-                console.log('   This is a known limitation of the browser/WASM build.');
-            }
             Module.ccall('bitcoin_pqc_keypair_free', null, ['number'], [keypair.keypairPtr]);
             throw error;
         }
@@ -249,9 +461,12 @@ async function testAlgorithm(algorithm, name) {
         }
         console.log(`Verification time: ${verifyDuration} ms`);
 
-        const modifiedMessageText = 'This is a MODIFIED message for PQC signature verification';
-        const modifiedMessage = Buffer.from(modifiedMessageText, 'utf8');
-        console.log(`Modified message: "${modifiedMessageText}"`);
+        const modifiedMessage = tamperedMessageForAlgorithm(algorithm, message);
+        if (algorithm === 0) {
+            console.log('Tampered message: BIP-340 row 0 with byte 31 flipped');
+        } else {
+            console.log(`Modified message: "${modifiedMessage.toString('utf8')}"`);
+        }
         const modifiedVerifyResult = verifySignature(
             algorithm,
             keypair.publicKey,
@@ -261,12 +476,19 @@ async function testAlgorithm(algorithm, name) {
 
         if (modifiedVerifyResult) {
             console.log('ERROR: Signature verified for modified message!');
-        } else {
-            console.log('Correctly rejected signature for modified message');
+            Module.ccall('bitcoin_pqc_keypair_free', null, ['number'], [keypair.keypairPtr]);
+            Module.ccall('bitcoin_pqc_signature_free', null, ['number'], [signatureData.signaturePtr]);
+            return false;
         }
+        console.log('Correctly rejected signature for modified message');
 
         Module.ccall('bitcoin_pqc_keypair_free', null, ['number'], [keypair.keypairPtr]);
         Module.ccall('bitcoin_pqc_signature_free', null, ['number'], [signatureData.signaturePtr]);
+
+        if (!verifyResult) {
+            console.log('ERROR: E2E failed — signature verification did not succeed');
+            return false;
+        }
 
         console.log('✓ Test passed!\n');
         return true;
@@ -282,24 +504,41 @@ async function testAlgorithm(algorithm, name) {
 async function runTests() {
     console.log('Bitcoin PQC Library Example (Node.js)');
     console.log('=====================================\n');
-    console.log('This example tests the post-quantum signature algorithms designed for BIP-360 and the Bitcoin QuBit soft fork.\n');
+    console.log('This example tests the signature algorithms defined for P2MR (BIP 360).\n');
 
     const results = [];
 
-    // Test ML-DSA-44
+    // E2E: all three algorithms (keygen → sign → verify → tampered fails)
+    results.push(await testAlgorithm(0, 'SECP256K1_SCHNORR'));
     results.push(await testAlgorithm(1, 'ML-DSA-44'));
+    results.push(await testAlgorithm(2, 'SLH-DSA-SHA2-128s'));
 
-    // Test SLH-DSA-Shake-128s
-    results.push(await testAlgorithm(2, 'SLH-DSA-Shake-128s'));
+    const e2ePassed = results.filter(Boolean).length;
+    const e2eTotal = results.length;
+
+    const secpGoldenPassed = await testSecpBip340Row0GoldenVector();
+    const mlGoldenPassed = await testMlDsa44GoldenVectors();
+    const slhGoldenPassed = await testSlhDsaSha2GoldenVectors();
 
     // Summary
     console.log('\n=====================================');
     console.log('Test Summary:');
-    console.log(`  ML-DSA-44: ${results[0] ? '✓ PASSED' : '✗ FAILED'}`);
-    console.log(`  SLH-DSA-Shake-128s: ${results[1] ? '✓ PASSED' : '✗ FAILED'}`);
+    console.log(`  E2E algorithms: ${e2ePassed}/${e2eTotal} passed`);
+    console.log(`  SECP256K1_SCHNORR: ${results[0] ? '✓ PASSED' : '✗ FAILED'}`);
+    console.log(`  ML-DSA-44: ${results[1] ? '✓ PASSED' : '✗ FAILED'}`);
+    console.log(`  SLH-DSA-SHA2-128s: ${results[2] ? '✓ PASSED' : '✗ FAILED'}`);
+    console.log(`  SECP256K1_SCHNORR BIP-340 row 0: ${secpGoldenPassed ? '✓ PASSED' : '✗ FAILED'}`);
+    console.log(`  ML-DSA-44 golden: ${mlGoldenPassed ? '✓ PASSED' : '✗ FAILED'}`);
+    console.log(`  SLH-DSA-SHA2-128s golden: ${slhGoldenPassed ? '✓ PASSED' : '✗ FAILED'}`);
     console.log('=====================================\n');
 
-    const exitCode = results.every(r => r) ? 0 : 1;
+    const exitCode =
+        e2ePassed === e2eTotal &&
+        secpGoldenPassed &&
+        mlGoldenPassed &&
+        slhGoldenPassed
+            ? 0
+            : 1;
     process.exit(exitCode);
 }
 

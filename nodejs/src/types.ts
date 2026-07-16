@@ -6,8 +6,8 @@ export enum Algorithm {
   SECP256K1_SCHNORR = 0,
   /** ML-DSA-44 (CRYSTALS-Dilithium) - Lattice-based signature scheme */
   ML_DSA_44 = 1,
-  /** SLH-DSA-Shake-128s (SPHINCS+) - Hash-based signature scheme */
-  SLH_DSA_SHAKE_128S = 2,
+  /** SLH-DSA-SHA2-128s (SPHINCS+) - Hash-based signature scheme */
+  SLH_DSA_SHA2_128S = 2,
 }
 
 /**

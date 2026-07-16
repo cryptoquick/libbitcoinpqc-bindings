@@ -1,15 +1,16 @@
 # BitcoinPQC - NodeJS TypeScript Bindings
 
-TypeScript bindings for the [libbitcoinpqc](https://github.com/bitcoin/libbitcoinpqc) library, which provides post-quantum cryptographic signature algorithms for use with BIP-360 and the Bitcoin QuBit soft fork.
+TypeScript bindings for the [libbitcoinpqc](https://github.com/cryptoquick/libbitcoinpqc) library — the three BIP 360 (P2MR) tapscript signature algorithms: secp256k1 Schnorr (BIP 340), ML-DSA-44, and SLH-DSA-SHA2-128s. See [BIP 360](https://github.com/bitcoin/bips/blob/master/bip-0360.mediawiki).
 
 ## Features
 
 - Full TypeScript support with typings
 - Clean, ergonomic API
-- Compatible with NodeJS 16+
-- Works with both PQC algorithms:
-  - ML-DSA-44 (formerly CRYSTALS-Dilithium)
-  - SLH-DSA-Shake-128s (formerly SPHINCS+)
+- Compatible with Node.js 16+
+- All three BIP 360 tapscript algorithms:
+  - SECP256K1_SCHNORR (BIP-340 Schnorr)
+  - ML-DSA-44 (CRYSTALS-Dilithium)
+  - SLH-DSA-SHA2-128s (SPHINCS+)
 
 ## Installation
 
@@ -19,7 +20,17 @@ npm install bitcoinpqc
 
 ### Prerequisites
 
-This package requires the native `libbitcoinpqc` library to be installed on your system. See the main [libbitcoinpqc README](https://github.com/bitcoin/libbitcoinpqc) for instructions on installing the C library.
+Build from the bindings repo (recommended):
+
+```bash
+git clone --recurse-submodules https://github.com/cryptoquick/libbitcoinpqc-bindings.git
+cd libbitcoinpqc-bindings/nodejs
+npm ci
+npm run build
+npm test
+```
+
+The native addon compiles `libbitcoinpqc` sources vendored under `nodejs/native/` during `npm run build`.
 
 ## API Usage
 
@@ -59,8 +70,8 @@ enum Algorithm {
   SECP256K1_SCHNORR = 0,
   /** ML-DSA-44 (CRYSTALS-Dilithium) - Lattice-based signature scheme */
   ML_DSA_44 = 1,
-  /** SLH-DSA-Shake-128s (SPHINCS+) - Hash-based signature scheme */
-  SLH_DSA_SHAKE_128S = 2
+  /** SLH-DSA-SHA2-128s (SPHINCS+) - Hash-based signature scheme */
+  SLH_DSA_SHA2_128S = 2
 }
 ```
 
@@ -135,7 +146,7 @@ Get the signature size for an algorithm.
 
 #### `generateKeyPair(algorithm: Algorithm, randomData: Uint8Array): KeyPair`
 
-Generate a key pair for the specified algorithm. The `randomData` must be at least 128 bytes.
+Generate a key pair for the specified algorithm. Use **32 bytes** of entropy for `SECP256K1_SCHNORR` and **128 bytes** for PQC algorithms.
 
 #### `sign(secretKey: SecretKey, message: Uint8Array): Signature`
 
@@ -145,12 +156,19 @@ Sign a message using the specified secret key. The signature is deterministic ba
 
 Verify a signature using the specified public key. Throws a `PqcError` if verification fails.
 
+## Breaking Changes (Phase 2)
+
+- Rename `SLH_DSA_SHAKE_128S` → `SLH_DSA_SHA2_128S` (enum wire value `2` unchanged)
+- ML-DSA secret key size is **2560** bytes (was incorrectly documented as 2528)
+- **Re-keying required:** SHAKE-128s keys/signatures are incompatible with SHA2-128s
+
 ## Algorithm Characteristics
 
 | Algorithm          | Public Key Size | Secret Key Size | Signature Size | Security Level |
 | ------------------ | --------------- | --------------- | -------------- | -------------- |
-| ML-DSA-44          | 1,312 bytes     | 2,528 bytes     | 2,420 bytes    | NIST Level 2   |
-| SLH-DSA-Shake-128s | 32 bytes        | 64 bytes        | 7,856 bytes    | NIST Level 1   |
+| SECP256K1_SCHNORR  | 32 bytes        | 32 bytes        | 64 bytes       | Classical      |
+| ML-DSA-44          | 1,312 bytes     | 2,560 bytes     | 2,420 bytes    | NIST Level 2   |
+| SLH-DSA-SHA2-128s  | 32 bytes        | 64 bytes        | 7,856 bytes    | NIST Level 1   |
 
 ## Security Notes
 
@@ -158,9 +176,9 @@ Verify a signature using the specified public key. Throws a `PqcError` if verifi
 - The implementations are based on reference code from the NIST PQC standardization process and are not production-hardened.
 - Care should be taken to securely manage secret keys in applications.
 
-## BIP-360 Compliance
+## BIP 360 / P2MR compliance
 
-This library implements the TypeScript bindings for cryptographic primitives required by [BIP-360](https://github.com/bitcoin/bips/blob/master/bip-0360.mediawiki), which defines the standard for post-quantum resistant signatures in Bitcoin.
+TypeScript bindings for the tapscript signature overloads specified in [BIP 360 (P2MR)](https://github.com/bitcoin/bips/blob/master/bip-0360.mediawiki).
 
 ## License
 

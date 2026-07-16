@@ -10,7 +10,7 @@ All values show relative performance compared to secp256k1 (lower is better).
 |-----------|----------------|---------|--------------|
 | secp256k1 | 1.00x | 1.00x | 1.00x |
 | ML-DSA-44 | *Needs Update* | *Needs Update* | *Needs Update* |
-| SLH-DSA-128S | *Needs Update* | *Needs Update* | *Needs Update* |
+| SLH-DSA-SHA2-128S | *Needs Update* | *Needs Update* | *Needs Update* |
 
 *Note: Performance values require parsing Criterion output and are not yet updated automatically.*
 
@@ -22,7 +22,7 @@ All values show actual sizes with relative comparison to secp256k1.
 |-----------|------------|------------|-----------|------------------------|
 | secp256k1 | 32 bytes (1.00x) | 32 bytes (1.00x) | 64 bytes (1.00x) | 96 bytes (1.00x) |
 | ML-DSA-44 | 2560 bytes (80.00x) | 1312 bytes (41.00x) | 2420 bytes (37.81x) | 3732 bytes (38.88x) |
-| SLH-DSA-128S | 64 bytes (2.00x) | 32 bytes (1.00x) | 7856 bytes (122.75x) | 7888 bytes (82.17x) |
+| SLH-DSA-SHA2-128S | 64 bytes (2.00x) | 32 bytes (1.00x) | 7856 bytes (122.75x) | 7888 bytes (82.17x) |
 
 ## Summary
 

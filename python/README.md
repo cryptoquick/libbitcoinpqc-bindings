@@ -1,34 +1,25 @@
 # Python Bindings for libbitcoinpqc
 
-This package provides Python bindings for the libbitcoinpqc library, which implements post-quantum cryptographic signature algorithms for use with BIP-360 and the Bitcoin QuBit soft fork.
+Python bindings for the [libbitcoinpqc](https://github.com/cryptoquick/libbitcoinpqc) C library — the three BIP 360 (P2MR) tapscript signature algorithms: secp256k1 Schnorr (BIP 340), ML-DSA-44, and SLH-DSA-SHA2-128s. See [BIP 360](https://github.com/bitcoin/bips/blob/master/bip-0360.mediawiki).
 
 ## Supported Algorithms
 
-- **ML-DSA-44** (CRYSTALS-Dilithium): A structured lattice-based digital signature scheme
-- **SLH-DSA-Shake-128s** (SPHINCS+): A stateless hash-based signature scheme
-- **FN-DSA-512** (FALCON): A lattice-based signature scheme designed for efficiency
+- **SECP256K1_SCHNORR** (BIP-340): Classical Schnorr signatures with x-only public keys
+- **ML-DSA-44** (CRYSTALS-Dilithium): Lattice-based post-quantum signatures
+- **SLH-DSA-SHA2-128s** (SPHINCS+): Stateless hash-based post-quantum signatures
 
 ## Installation
 
 ```bash
-# Install the package
 pip install bitcoinpqc
 ```
 
-or from source:
+From source (requires the C library built from the bindings submodule):
 
 ```bash
-# Clone the repository
-git clone https://github.com/bitcoin/libbitcoinpqc.git
-cd libbitcoinpqc
-
-# Build the C library
-mkdir build && cd build
-cmake ..
-make
-cd ..
-
-# Install the Python package
+git clone --recurse-submodules https://github.com/cryptoquick/libbitcoinpqc-bindings.git
+cd libbitcoinpqc-bindings
+make c-lib
 cd python
 pip install -e .
 ```
@@ -36,7 +27,7 @@ pip install -e .
 ## Requirements
 
 - Python 3.7 or higher
-- The libbitcoinpqc C library must be built and installed
+- `libbitcoinpqc` built via `make c-lib` or installed system-wide
 
 ## Example Usage
 
@@ -44,34 +35,36 @@ pip install -e .
 import secrets
 from bitcoinpqc import Algorithm, keygen, sign, verify
 
-# Generate random data for key generation
+# PQC keygen needs 128 bytes of entropy; secp256k1 Schnorr needs 32
 random_data = secrets.token_bytes(128)
 
-# Generate a key pair
-algorithm = Algorithm.ML_DSA_44  # CRYSTALS-Dilithium
+algorithm = Algorithm.ML_DSA_44
 keypair = keygen(algorithm, random_data)
 
-# Create a message to sign
 message = b"Hello, Bitcoin PQC!"
-
-# Sign the message
 signature = sign(algorithm, keypair.secret_key, message)
 
-# Verify the signature
 is_valid = verify(algorithm, keypair.public_key, message, signature)
-print(f"Signature valid: {is_valid}")  # Should print True
+print(f"Signature valid: {is_valid}")
 ```
+
+## Breaking Changes (Phase 2)
+
+- Rename `SLH_DSA_SHAKE_128S` → `SLH_DSA_SHA2_128S`
+- Remove `FN_DSA_512` (no longer supported)
+- Enum wire values: `SECP256K1_SCHNORR=0`, `ML_DSA_44=1`, `SLH_DSA_SHA2_128S=2`
+- **Re-keying required:** SHAKE-128s keys/signatures are incompatible with SHA2-128s
 
 ## Running Tests
 
 ```bash
-# Run the tests
+# From libbitcoinpqc-bindings/python (after make c-lib)
 ./run_tests.sh
 
-# Or using unittest directly
-python -m unittest discover -s tests
+# Or directly
+python3 -m unittest discover -s tests -v
 ```
 
 ## License
 
-This project is licensed under the MIT License.
+MIT License.

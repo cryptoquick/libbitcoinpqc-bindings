@@ -1,15 +1,16 @@
 # libbitcoinpqc-bindings
 
-Language bindings (Rust, Python, Node.js) for the [libbitcoinpqc](https://github.com/jbride/libbitcoinpqc) C library. The C library implements two NIST PQC standard signature algorithms for use with [BIP-360](https://github.com/cryptoquick/bips/blob/p2qrh/bip-0360.mediawiki) and the Bitcoin QuBit soft fork:
+Language bindings (Rust, Python, Node.js, WASM) for the [libbitcoinpqc](https://github.com/cryptoquick/libbitcoinpqc) C library. [BIP 360](https://github.com/bitcoin/bips/blob/master/bip-0360.mediawiki) defines P2MR tapscript signature overloads; this library implements all three:
 
-1. **ML-DSA-44** (formerly CRYSTALS-Dilithium): A structured lattice-based digital signature scheme that is part of the NIST PQC standardization.
-2. **SLH-DSA-Shake-128s** (formerly SPHINCS+): A stateless hash-based signature scheme with minimal security assumptions.
+1. **secp256k1 Schnorr** (BIP-340): Classical elliptic-curve signatures with x-only public keys.
+2. **ML-DSA-44** (formerly CRYSTALS-Dilithium): A lattice-based scheme from the NIST PQC standardization.
+3. **SLH-DSA-SHA2-128s** (formerly SPHINCS+): A stateless hash-based scheme using SHA-256, aligned with Bitcoin's native hash primitive.
 
-Notice that all PQC signature algorithms used are certified according to the Federal Information Processing Standards, or FIPS. This should help in the future with native hardware support.
+The two post-quantum algorithms (ML-DSA-44 and SLH-DSA-SHA2-128s) are FIPS-certified, which should help with future native hardware support.
 
-## Bitcoin QuBit Integration
+## P2MR (BIP 360)
 
-This library serves as the cryptographic foundation for the Bitcoin QuBit soft fork, which aims to make Bitcoin's signature verification quantum-resistant through the implementation of BIP-360. QuBit introduces new post-quantum secure transaction types that can protect Bitcoin from potential threats posed by quantum computers.
+[P2MR](https://github.com/bitcoin/bips/blob/master/bip-0360.mediawiki) (Pay-to-Merkle-Root) is the output and tapscript framework in BIP 360. This library supplies the signature primitives for its script-path spends — classical secp256k1 Schnorr plus optional post-quantum schemes. That is separate from broader Bitcoin post-quantum migration work; BIP 360 is specifically about P2MR tapscript overloads.
 
 ## Features
 
@@ -17,6 +18,7 @@ This library serves as the cryptographic foundation for the Bitcoin QuBit soft f
 - Safe Rust bindings with memory safety and zero-copy operations
 - NodeJS TypeScript bindings with full type safety
 - Python bindings for easy integration
+- WASM builds for browser and Node.js (`bitcoinpqc/wasm`)
 - User-provided entropy (bring your own randomness)
 - Key generation, signing, and verification functions
 - Minimal dependencies
@@ -25,22 +27,36 @@ This library serves as the cryptographic foundation for the Bitcoin QuBit soft f
 
 | Algorithm | Public Key Size | Secret Key Size | Signature Size | Security Level |
 |-----------|----------------|----------------|----------------|----------------|
-| secp256k1 | 32 bytes | 32 bytes | 64 bytes | Classical |
-| ML-DSA-44 | 1,312 bytes | 2,528 bytes | 2,420 bytes | NIST Level 2 |
-| SLH-DSA-SHAKE-128s | 32 bytes | 64 bytes | 7,856 bytes | NIST Level 1 |
+| SECP256K1_SCHNORR | 32 bytes | 32 bytes | 64 bytes | Classical |
+| ML-DSA-44 | 1,312 bytes | 2,560 bytes | 2,420 bytes | NIST Level 2 |
+| SLH-DSA-SHA2-128s | 32 bytes | 64 bytes | 7,856 bytes | NIST Level 1 |
 
 See [REPORT.md](benches/REPORT.md) for performance and size comparison to secp256k1.
 
+## Breaking Changes (Phase 2)
+
+Phase 2 renames SLH-DSA bindings from SHAKE-128s to SHA2-128s. Update identifiers as follows:
+
+| Old identifier | New identifier |
+|----------------|----------------|
+| `SLH_DSA_128S` (Rust) | `SLH_DSA_SHA2_128S` |
+| `SLH_DSA_SHAKE_128S` (Python/Node.js/WASM) | `SLH_DSA_SHA2_128S` |
+
+- Enum wire value `2` is unchanged.
+- Key sizes (32/64/7856 bytes) are unchanged.
+- **Enum wire values:** `SECP256K1_SCHNORR=0`, `ML_DSA_44=1`, `SLH_DSA_SHA2_128S=2`. Removed `FN_DSA_512`.
+- **Re-keying required:** keys and signatures from SHAKE-128s are cryptographically incompatible with SHA2-128s. Generate new key pairs after upgrading.
+
 ## Security Notes
 
-- This library does not provide its own random number generation. It is essential that the user provide entropy from a cryptographically secure source.
+- This library does not provide its own random number generation. It is essential that the user provide entropy from a cryptographically secure source. See [docs/user_provided_entropy.md](docs/user_provided_entropy.md).
 - Random data is required for key generation, but not for signing. All signatures are deterministic, based on the message and secret key.
 - The implementations are based on reference code from the NIST PQC standardization process and are not production-hardened.
 - Care should be taken to securely manage secret keys in applications.
 
-## BIP-360 Compliance
+## BIP 360 / P2MR compliance
 
-This library implements the cryptographic primitives required by [BIP-360](https://github.com/bitcoin/bips/blob/master/bip-0360.mediawiki), which defines the standard for post-quantum resistant signatures in Bitcoin. It supports all three recommended algorithms with the specified parameter sets.
+This library implements the three tapscript `OP_CHECKSIG` overloads specified in [BIP 360 (P2MR)](https://github.com/bitcoin/bips/blob/master/bip-0360.mediawiki), with the parameter sets named in the BIP.
 
 ## License
 
@@ -48,11 +64,14 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Dependencies
 
-The C library is included via a git subtree from [libbitcoinpqc](https://github.com/jbride/libbitcoinpqc) at `libbitcoinpqc/`. To pull upstream changes:
+The C library is included as a git submodule from [libbitcoinpqc](https://github.com/cryptoquick/libbitcoinpqc) at `libbitcoinpqc/`, tracking branch `27-slh-dsa-sha-2-128s` (see `.gitmodules`). To bump the pinned commit after upstream changes on that branch (or once merged to `main`):
 
 ```bash
-git subtree pull --prefix=libbitcoinpqc https://github.com/jbride/libbitcoinpqc.git binding_segregation --squash
+cd libbitcoinpqc && git fetch && git checkout <new-ref> && cd ..
+git add libbitcoinpqc && git commit -m "Bump libbitcoinpqc submodule"
 ```
+
+Build outputs belong in the **parent** `build/` directory (`make c-lib`, `make c-lib-test`). Do not run `cmake -B build` or bare `ctest` inside `libbitcoinpqc/` — that leaves `libbitcoinpqc/build/` and `libbitcoinpqc/Testing/` behind and makes `git submodule status` report untracked content. Run `make clean` (or `make clean-submodule`) to remove those artifacts.
 
 ## Building
 
@@ -65,11 +84,14 @@ git subtree pull --prefix=libbitcoinpqc https://github.com/jbride/libbitcoinpqc.
 ### Building
 
 ```bash
-# Clone the repository
-git clone https://github.com/jbride/libbitcoinpqc-bindings.git
+# Clone the repository (with submodules)
+git clone --recurse-submodules https://github.com/cryptoquick/libbitcoinpqc-bindings.git
 cd libbitcoinpqc-bindings
 
-# Build the Rust bindings (automatically builds the C library from the subtree)
+# Or, if already cloned without submodules:
+# git submodule update --init --recursive
+
+# Build the Rust bindings (automatically builds the C library from the submodule)
 cargo build --release
 
 # Or use the Makefile
@@ -121,16 +143,16 @@ uint8_t random_data[256];
 
 // Generate a key pair
 bitcoin_pqc_keypair_t keypair;
-bitcoin_pqc_keygen(BITCOIN_PQC_MLDSA44, &keypair, random_data, sizeof(random_data));
+bitcoin_pqc_keygen(BITCOIN_PQC_ML_DSA_44, &keypair, random_data, sizeof(random_data));
 
 // Sign a message
 const uint8_t message[] = "Message to sign";
 bitcoin_pqc_signature_t signature;
-bitcoin_pqc_sign(BITCOIN_PQC_MLDSA44, keypair.secret_key, keypair.secret_key_size,
+bitcoin_pqc_sign(BITCOIN_PQC_ML_DSA_44, keypair.secret_key, keypair.secret_key_size,
                 message, sizeof(message) - 1, &signature);
 
 // Verify the signature
-bitcoin_pqc_error_t result = bitcoin_pqc_verify(BITCOIN_PQC_MLDSA44,
+bitcoin_pqc_error_t result = bitcoin_pqc_verify(BITCOIN_PQC_ML_DSA_44,
                                              keypair.public_key, keypair.public_key_size,
                                              message, sizeof(message) - 1,
                                              signature.signature, signature.signature_size);
@@ -153,7 +175,7 @@ let mut random_data = vec![0u8; 128];
 OsRng.fill_bytes(&mut random_data);
 
 // Generate a key pair
-let keypair = generate_keypair(Algorithm::MLDSA44, &random_data).unwrap();
+let keypair = generate_keypair(Algorithm::ML_DSA_44, &random_data).unwrap();
 
 // Create a message to sign
 let message = b"Message to sign";
@@ -167,7 +189,7 @@ verify(&keypair.public_key, message, &signature).unwrap();
 
 ## Python API Usage
 
-[Python bindings are also available for libbitcoinpqc](https://pypi.org/project/bitcoinpqc/0.1.0/), allowing you to use the post-quantum cryptographic algorithms from Python code.
+[Python bindings](https://pypi.org/project/bitcoinpqc/0.4.1/) for all three algorithms.
 
 ### Installation
 
@@ -218,7 +240,7 @@ The Python API mirrors the C API closely, with some Pythonic improvements:
 - **Algorithm** - Enum class for algorithm selection
   - `SECP256K1_SCHNORR`
   - `ML_DSA_44` (CRYSTALS-Dilithium)
-  - `SLH_DSA_SHAKE_128S` (SPHINCS+)
+  - `SLH_DSA_SHA2_128S` (SPHINCS+)
 
 - **KeyPair** - Class to hold a public/secret key pair
   - `algorithm` - The algorithm used
@@ -233,13 +255,13 @@ The Python API mirrors the C API closely, with some Pythonic improvements:
   - `public_key_size(algorithm)` - Get the public key size for an algorithm
   - `secret_key_size(algorithm)` - Get the secret key size for an algorithm
   - `signature_size(algorithm)` - Get the signature size for an algorithm
-  - `keygen(algorithm, random_data)` - Generate a key pair
+  - `keygen(algorithm, random_data)` - Generate a key pair (32 bytes for `SECP256K1_SCHNORR`, 128 for PQC)
   - `sign(algorithm, secret_key, message)` - Sign a message
   - `verify(algorithm, public_key, message, signature)` - Verify a signature
 
 ## NodeJS TypeScript API Usage
 
-[NodeJS TypeScript bindings](https://www.npmjs.com/package/bitcoinpqc) allow you to use post-quantum cryptographic algorithms in JavaScript/TypeScript projects.
+[NodeJS TypeScript bindings](https://www.npmjs.com/package/bitcoinpqc) for all three algorithms in JavaScript/TypeScript projects.
 
 ### Installation
 
@@ -286,7 +308,7 @@ The TypeScript API provides a clean, modern interface:
 - **Algorithm** - Enum for algorithm selection
   - `SECP256K1_SCHNORR`
   - `ML_DSA_44` (CRYSTALS-Dilithium)
-  - `SLH_DSA_SHAKE_128S` (SPHINCS+)
+  - `SLH_DSA_SHA2_128S` (SPHINCS+)
 
 - **Classes**
   - `PublicKey` - Public key wrapper
@@ -298,14 +320,32 @@ The TypeScript API provides a clean, modern interface:
   - `publicKeySize(algorithm)` - Get the public key size for an algorithm
   - `secretKeySize(algorithm)` - Get the secret key size for an algorithm
   - `signatureSize(algorithm)` - Get the signature size for an algorithm
-  - `generateKeyPair(algorithm, randomData)` - Generate a key pair
+  - `generateKeyPair(algorithm, randomData)` - Generate a key pair (32 bytes of entropy for `SECP256K1_SCHNORR`, 128 bytes for PQC)
   - `sign(secretKey, message)` - Sign a message
   - `verify(publicKey, message, signature)` - Verify a signature
 
 For more details, see the [NodeJS TypeScript bindings README](nodejs/README.md).
 
+## WASM API Usage
+
+Browser and Node.js WASM builds are published as [`bitcoinpqc/wasm`](https://www.npmjs.com/package/bitcoinpqc/wasm). The Emscripten high-level API covers all three algorithms with the same entropy rules as the native bindings.
+
+```bash
+cd wasm
+npm install
+npm run build
+npm test
+```
+
+See [wasm/README.md](wasm/README.md) for the full API reference and browser testing notes.
+
 ## Acknowledgments
 
 - The original NIST PQC competition teams for their reference implementations
 - The NIST PQC standardization process for advancing post-quantum cryptography
-- The Bitcoin QuBit soft fork contributors and BIP-360 contributors
+- The BIP 360 (P2MR) contributors
+
+
+## Test vectors
+
+Algorithm golden vectors: [`tests/vectors/`](tests/vectors/). BIP-360 P2MR construction: [`tests/vectors/p2mr/`](tests/vectors/p2mr/).
