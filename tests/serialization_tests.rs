@@ -1,10 +1,10 @@
 mod common;
 
-#[path = "vectors/ml_dsa_44_golden_vectors.rs"]
+#[path = "vectors/rust/ml_dsa_44_golden_vectors.rs"]
 mod ml_dsa_golden_vectors;
-#[path = "vectors/secp256k1_bip340_golden_vectors.rs"]
+#[path = "vectors/rust/secp256k1_bip340_golden_vectors.rs"]
 mod secp_golden_vectors;
-#[path = "vectors/slh_dsa_sha2_golden_vectors.rs"]
+#[path = "vectors/rust/slh_dsa_sha2_golden_vectors.rs"]
 mod slh_golden_vectors;
 
 use hex::{decode as hex_decode, encode as hex_encode};

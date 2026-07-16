@@ -18,7 +18,7 @@ The two post-quantum algorithms (ML-DSA-44 and SLH-DSA-SHA2-128s) are FIPS-certi
 - Safe Rust bindings with memory safety and zero-copy operations
 - NodeJS TypeScript bindings with full type safety
 - Python bindings for easy integration
-- WASM builds for browser and Node.js (`@jbride/bitcoinpqc-wasm`)
+- WASM builds for browser and Node.js (`bitcoinpqc/wasm`)
 - User-provided entropy (bring your own randomness)
 - Key generation, signing, and verification functions
 - Minimal dependencies
@@ -189,7 +189,7 @@ verify(&keypair.public_key, message, &signature).unwrap();
 
 ## Python API Usage
 
-[Python bindings](https://pypi.org/project/bitcoinpqc/0.4.0/) for all three algorithms.
+[Python bindings](https://pypi.org/project/bitcoinpqc/0.4.1/) for all three algorithms.
 
 ### Installation
 
@@ -261,13 +261,13 @@ The Python API mirrors the C API closely, with some Pythonic improvements:
 
 ## NodeJS TypeScript API Usage
 
-[NodeJS TypeScript bindings](https://www.npmjs.com/package/@jbride/bitcoinpqc) for all three algorithms in JavaScript/TypeScript projects.
+[NodeJS TypeScript bindings](https://www.npmjs.com/package/bitcoinpqc) for all three algorithms in JavaScript/TypeScript projects.
 
 ### Installation
 
 ```bash
 # Install the Node.js package
-npm install @jbride/bitcoinpqc
+npm install bitcoinpqc
 ```
 
 ### Prerequisites
@@ -328,7 +328,7 @@ For more details, see the [NodeJS TypeScript bindings README](nodejs/README.md).
 
 ## WASM API Usage
 
-Browser and Node.js WASM builds are published as [`@jbride/bitcoinpqc-wasm`](https://www.npmjs.com/package/@jbride/bitcoinpqc-wasm). The Emscripten high-level API covers all three algorithms with the same entropy rules as the native bindings.
+Browser and Node.js WASM builds are published as [`bitcoinpqc/wasm`](https://www.npmjs.com/package/bitcoinpqc/wasm). The Emscripten high-level API covers all three algorithms with the same entropy rules as the native bindings.
 
 ```bash
 cd wasm
@@ -344,3 +344,8 @@ See [wasm/README.md](wasm/README.md) for the full API reference and browser test
 - The original NIST PQC competition teams for their reference implementations
 - The NIST PQC standardization process for advancing post-quantum cryptography
 - The BIP 360 (P2MR) contributors
+
+
+## Test vectors
+
+Algorithm golden vectors: [`tests/vectors/`](tests/vectors/). BIP-360 P2MR construction: [`tests/vectors/p2mr/`](tests/vectors/p2mr/).

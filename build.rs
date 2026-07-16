@@ -2,16 +2,33 @@ use std::env;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-const SECP256K1_TAG: &str = "v0.5.0";
-const SECP256K1_COMMIT: &str = "e3a885d42a7800c1ccebad94ad1e2b82c4df5c65";
+// Keep in sync with libbitcoinpqc/CMakeLists.txt FetchContent GIT_TAG and wasm/bin/wasm_build.sh.
+const SECP256K1_TAG: &str = "v0.7.1";
+const SECP256K1_COMMIT: &str = "1a53f4961f337b4d166c25fce72ef0dc88806618";
 
-/// Fetch libsecp256k1 into wasm/vendor/ when missing (matches wasm/bin/wasm_build.sh).
+fn secp256k1_vendor_commit(secp_dir: &Path) -> Option<String> {
+    let output = Command::new("git")
+        .args(["-C", secp_dir.to_str()?, "rev-parse", "HEAD"])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+/// Fetch libsecp256k1 into wasm/vendor/ when missing or pinned commit mismatches.
 fn ensure_secp256k1_vendor(manifest_dir: &Path) -> PathBuf {
     let secp_dir = manifest_dir.join("wasm/vendor/secp256k1");
     let marker = secp_dir.join("src/secp256k1.c");
 
     if marker.is_file() {
-        return secp_dir;
+        if secp256k1_vendor_commit(&secp_dir).as_deref() == Some(SECP256K1_COMMIT) {
+            return secp_dir;
+        }
+        eprintln!(
+            "libsecp256k1 vendor commit mismatch; re-fetching {SECP256K1_TAG} ({SECP256K1_COMMIT})"
+        );
     }
 
     if secp_dir.exists() {
@@ -264,7 +281,7 @@ fn link_native_libbitcoinpqc(prefix: &Path) {
     println!("cargo:rustc-link-lib=static=secp256k1");
     println!("cargo:rustc-link-lib=pthread");
     println!("cargo:rustc-link-lib=m");
-    // Full archive paths avoid colliding with the Rust secp256k1-sys crate's prefixed symbols.
+    // Link full archives so libbitcoinpqc and libsecp256k1 resolve as a unit.
     println!(
         "cargo:rustc-link-arg={}",
         lib_dir.join("libbitcoinpqc.a").display()

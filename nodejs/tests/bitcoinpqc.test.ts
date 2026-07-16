@@ -14,19 +14,19 @@ import {
   ML_DSA_44_EXPECTED_SIG,
   ML_DSA_44_TEST_ENTROPY,
   ML_DSA_44_TEST_MESSAGE,
-} from "./ml_dsa_44_golden_vectors";
+} from "../../tests/vectors/nodejs/ml_dsa_44_golden_vectors";
 import {
   SECP256K1_BIP340_ROW0_EXPECTED_PK,
   SECP256K1_BIP340_ROW0_EXPECTED_SIG,
   SECP256K1_BIP340_ROW0_MESSAGE,
   SECP256K1_BIP340_ROW0_SECRET,
-} from "./secp256k1_bip340_golden_vectors";
+} from "../../tests/vectors/nodejs/secp256k1_bip340_golden_vectors";
 import {
   SLH_DSA_SHA2_EXPECTED_PK,
   SLH_DSA_SHA2_EXPECTED_SIG,
   SLH_DSA_SHA2_TEST_ENTROPY,
   SLH_DSA_SHA2_TEST_MESSAGE,
-} from "./slh_dsa_sha2_golden_vectors";
+} from "../../tests/vectors/nodejs/slh_dsa_sha2_golden_vectors";
 
 describe("Bitcoin PQC", () => {
   function getRandomBytes(size: number): Uint8Array {

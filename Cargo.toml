@@ -1,10 +1,14 @@
+[workspace]
+members = [".", "fuzz"]
+resolver = "2"
+
 [package]
 name = "bitcoinpqc"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2021"
 authors = ["Hunter Beast <hunter@surmount.systems>"]
 description = "Tapscript signature algorithms for Bitcoin P2MR (BIP 360): secp256k1 Schnorr, ML-DSA-44, and SLH-DSA-SHA2-128s"
-repository = "https://github.com/bitcoin/libbitcoinpqc"
+repository = "https://github.com/jbride/libbitcoinpqc-bindings"
 license = "MIT"
 keywords = ["bitcoin", "cryptography", "bip360", "p2mr", "tapscript"]
 
@@ -16,10 +20,6 @@ bitmask-enum = "2.2.5"
 getrandom = { version = "0.3", features = ["wasm_js"] }
 criterion = { version = "0.5", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
-secp256k1 = { version = "0.31.0", default-features = false, features = [
-    "global-context",
-    "rand",
-] }
 
 [build-dependencies]
 bindgen = "0.71.1"
@@ -30,6 +30,7 @@ cmake = "0.1"
 hex = "0.4"
 rand = "0.9"
 serde_json = "1.0"
+sha2 = "0.10"
 wasm-bindgen-test = "0.3"
 
 [features]
@@ -39,7 +40,7 @@ bench = ["dep:criterion"]
 # but never use it for actual builds
 ide = []
 # Define the serde feature
-serde = ["dep:serde", "secp256k1/serde"]
+serde = ["dep:serde"]
 
 [lib]
 name = "bitcoinpqc"

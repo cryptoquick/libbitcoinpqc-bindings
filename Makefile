@@ -148,7 +148,7 @@ test-rust:
 # Benchmark targets
 .PHONY: sync-vectors
 sync-vectors:
-	@echo -e "${BLUE}Syncing golden vectors from tests/fixtures/...${NC}"
+	@echo -e "${BLUE}Syncing golden vectors from tests/vectors/fixtures/...${NC}"
 	@if [ -d "$(HOME)/Projects/surmount/libbitcoinpqc/.git" ]; then \
 		echo -e "${BLUE}C headers -> $(HOME)/Projects/surmount/libbitcoinpqc (standalone upstream)${NC}"; \
 		LIBBITCOINPQC_SRC="$(HOME)/Projects/surmount/libbitcoinpqc" python3 scripts/sync-golden-vectors.py; \

@@ -15,7 +15,7 @@ TypeScript bindings for the [libbitcoinpqc](https://github.com/cryptoquick/libbi
 ## Installation
 
 ```bash
-npm install @jbride/bitcoinpqc
+npm install bitcoinpqc
 ```
 
 ### Prerequisites

@@ -28,17 +28,17 @@ OUTPUT_DIR="wasm/dist"
 OBJ_DIR="wasm/obj"
 mkdir -p "$OUTPUT_DIR" "$OBJ_DIR"
 
-# Fetch libsecp256k1 v0.5.0 (BIP-340 Schnorr + x-only keys)
+# Fetch libsecp256k1 v0.7.1 (keep in sync with libbitcoinpqc/CMakeLists.txt)
 SECP_DIR="$PROJECT_ROOT/wasm/vendor/secp256k1"
-SECP_COMMIT="e3a885d42a7800c1ccebad94ad1e2b82c4df5c65"  # v0.5.0 tag
+SECP_COMMIT="1a53f4961f337b4d166c25fce72ef0dc88806618"  # v0.7.1 tag
 
 fetch_secp256k1() {
-    echo "Fetching libsecp256k1 v0.5.0 (${SECP_COMMIT})..."
+    echo "Fetching libsecp256k1 v0.7.1 (${SECP_COMMIT})..."
     rm -rf "$SECP_DIR"
     local cloned=0
     local attempt
     for attempt in 1 2 3; do
-        if git clone --depth 1 --branch v0.5.0 https://github.com/bitcoin-core/secp256k1.git "$SECP_DIR"; then
+        if git clone --depth 1 --branch v0.7.1 https://github.com/bitcoin-core/secp256k1.git "$SECP_DIR"; then
             cloned=1
             break
         fi
@@ -55,7 +55,7 @@ fetch_secp256k1() {
     local actual_commit
     actual_commit="$(git -C "$SECP_DIR" rev-parse HEAD)"
     if [ "$actual_commit" != "$SECP_COMMIT" ]; then
-        echo "  Tag v0.5.0 resolved to ${actual_commit}; checking out pinned commit..."
+        echo "  Tag v0.7.1 resolved to ${actual_commit}; checking out pinned commit..."
         git -C "$SECP_DIR" fetch --depth 1 origin "$SECP_COMMIT"
         git -C "$SECP_DIR" checkout "$SECP_COMMIT"
     fi
@@ -135,7 +135,7 @@ BITCOINPQC_SOURCES=(
     "$PROJECT_ROOT/libbitcoinpqc/src/slh_dsa/utils.c"
 )
 
-# libsecp256k1 sources (v0.5.0 requires precomputed_ecmult*.c)
+# libsecp256k1 sources (v0.7.1 requires precomputed_ecmult*.c)
 SECP_SOURCES=(
     "$SECP_DIR/src/secp256k1.c"
     "$SECP_DIR/src/precomputed_ecmult.c"

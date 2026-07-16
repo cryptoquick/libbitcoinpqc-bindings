@@ -14,19 +14,19 @@ const {
     ML_DSA_44_EXPECTED_SIG,
     ML_DSA_44_TEST_ENTROPY,
     ML_DSA_44_TEST_MESSAGE,
-} = require('./ml_dsa_44_golden_vectors');
+} = require('../../tests/vectors/wasm/ml_dsa_44_golden_vectors');
 const {
     SECP256K1_BIP340_ROW0_EXPECTED_PK,
     SECP256K1_BIP340_ROW0_EXPECTED_SIG,
     SECP256K1_BIP340_ROW0_MESSAGE,
     SECP256K1_BIP340_ROW0_SECRET,
-} = require('./secp256k1_bip340_golden_vectors');
+} = require('../../tests/vectors/wasm/secp256k1_bip340_golden_vectors');
 const {
     SLH_DSA_SHA2_EXPECTED_PK,
     SLH_DSA_SHA2_EXPECTED_SIG,
     SLH_DSA_SHA2_TEST_ENTROPY,
     SLH_DSA_SHA2_TEST_MESSAGE,
-} = require('./slh_dsa_sha2_golden_vectors');
+} = require('../../tests/vectors/wasm/slh_dsa_sha2_golden_vectors');
 
 // Load the WASM module using require (Emscripten generates CommonJS-compatible code)
 let Module;

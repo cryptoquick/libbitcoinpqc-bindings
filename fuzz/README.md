@@ -4,11 +4,15 @@ This directory contains fuzz testing for the libbitcoinpqc library using [cargo-
 
 ## Prerequisites
 
-You need to have cargo-fuzz installed:
+Fuzz **runs** need **nightly** Rust (`cargo fuzz` passes `-Zsanitizer=address` to the
+compiler). A stable toolchain is fine for the compile-only gate below.
 
-```
+```bash
+rustup toolchain install nightly
 cargo install cargo-fuzz
 ```
+
+Verify nightly is available: `rustc +nightly --version`.
 
 ## Algorithm Selection
 
@@ -36,26 +40,38 @@ cd fuzz && cargo check
 
 ## Running the Fuzz Tests
 
+Use the `+nightly` toolchain (or set `RUSTUP_TOOLCHAIN=nightly`):
+
+```bash
+cargo +nightly fuzz run keypair_generation
+```
+
 To run a specific fuzz target:
 
 ```bash
-cargo fuzz run keypair_generation
-cargo fuzz run sign_verify
-cargo fuzz run cross_algorithm
-cargo fuzz run key_parsing
-cargo fuzz run signature_parsing
+cargo +nightly fuzz run keypair_generation
+cargo +nightly fuzz run sign_verify
+cargo +nightly fuzz run cross_algorithm
+cargo +nightly fuzz run key_parsing
+cargo +nightly fuzz run signature_parsing
+```
+
+Quick smoke of every target (2 seconds each), from the repo root:
+
+```bash
+just fuzz-smoke
 ```
 
 To run a fuzz target for a specific amount of time:
 
 ```bash
-cargo fuzz run keypair_generation -- -max_total_time=60
+cargo +nightly fuzz run keypair_generation -- -max_total_time=60
 ```
 
 To run a fuzz target with a specific number of iterations:
 
 ```bash
-cargo fuzz run keypair_generation -- -runs=1000000
+cargo +nightly fuzz run keypair_generation -- -runs=1000000
 ```
 
 To run **all** fuzz targets **in parallel**, use the provided script (make sure it's executable: `chmod +x fuzz/run_all_fuzzers.sh`):
@@ -97,4 +113,4 @@ To add a new fuzz target:
 1. Create a new Rust file in the `fuzz_targets` directory
 2. Add the target to `fuzz/Cargo.toml`
 3. Run `cd fuzz && cargo check` to verify it compiles
-4. Run the new target with `cargo fuzz run target_name`
+4. Run the new target with `cargo +nightly fuzz run target_name`

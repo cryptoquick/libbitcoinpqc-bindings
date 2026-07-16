@@ -3,9 +3,15 @@
 #
 # Hermetic here means: declared inputs drive rebuilds (Cargo rerun-if-changed,
 # CMake cache FORCE pins, pinned submodule tags) — not deleting artifacts until
-# things work. `just test` trusts those mechanisms. GitHub Actions still scrubs
-# a few rust-cache paths before Rust jobs; that's a cache-restore workaround,
-# not part of the local build model.
+# things work. `just test` trusts those mechanisms.
+#
+# `just ci` mirrors every blocking GitHub Actions job on this host (see
+# .github/workflows/ci.yml): vectors-in-sync, no-skipped-tests, Rust fmt/clippy/
+# build/tests/fuzz-check, c-lib-test, python-test, nodejs-test, wasm-test,
+# emscripten-wasm-test. It also scrubs rust-cache cmake artifacts like CI.
+# vectors-in-sync checks only golden-vector paths (CI uses a clean tree).
+# Not replicated locally: macOS matrix legs (build-matrix, python-test,
+# nodejs-test), and the main-branch benchmark job (continue-on-error).
 #
 # Full hermetic gate (Nix): `just hermetic` or `nix flake check -L` — composes
 # libbitcoinpqc's flake (C ctest, pins, …) plus Rust/fuzz/vector checks.
@@ -22,7 +28,8 @@ default:
 
 # ── Nix (hermetic) ───────────────────────────────────────────────────────────
 
-# Composed flake gate: upstream libbitcoinpqc checks + bindings Rust/fuzz/vectors.
+# Composed flake gate: upstream C lib, Rust/fmt/clippy/tests, fuzz, bench,
+# vectors, python, nodejs, wasm, and wasm-pack checks.
 hermetic:
     {{nix}} flake check -L
 
@@ -42,12 +49,19 @@ test-all: test emscripten
     @echo ""
     @echo "=== all tests (incl. emscripten) passed ==="
 
-# Full CI gate before merge/push.
-ci: submodule-check vectors-in-sync no-skipped-tests test-all
+# Full CI gate before merge/push (mirrors .github/workflows/ci.yml on this host).
+ci: submodule-check vectors-in-sync no-skipped-tests ci-rust c-lib python nodejs wasm emscripten
     @echo ""
     @echo "=== CI gate passed ==="
 
 check: ci
+
+# Main-branch benchmark job (informational in CI; optional locally).
+ci-benchmark: submodule-check rust-cache-scrub
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "=== rust benchmarks (informational) ==="
+    CI=true cargo bench --features bench -- --noplot
 
 # ── Preconditions ────────────────────────────────────────────────────────────
 
@@ -66,31 +80,29 @@ vectors-in-sync:
     #!/usr/bin/env bash
     set -euo pipefail
     echo "=== golden vectors in sync ==="
-    # Match Makefile: C headers go to standalone upstream when present (local dev).
-    if [ -d "$HOME/Projects/surmount/libbitcoinpqc/.git" ]; then
-      export LIBBITCOINPQC_SRC="$HOME/Projects/surmount/libbitcoinpqc"
-      c_lib_repo="$LIBBITCOINPQC_SRC"
-    else
-      c_lib_repo="libbitcoinpqc"
-    fi
-    make sync-vectors
+    # CI has no standalone upstream checkout; always sync C headers into the submodule.
+    # (make sync-vectors prefers a local standalone upstream when present.)
+    export LIBBITCOINPQC_SRC="$(pwd)/libbitcoinpqc"
+    python3 scripts/sync-golden-vectors.py
+    # Algorithm golden artifacts only (P2MR JSON under tests/vectors/p2mr is hand-maintained).
     bindings_paths=(
-      tests/vectors
-      python/tests/slh_dsa_sha2_golden_vectors.py
-      python/tests/ml_dsa_44_golden_vectors.py
-      python/tests/secp256k1_bip340_golden_vectors.py
-      nodejs/tests/slh_dsa_sha2_golden_vectors.js
-      nodejs/tests/slh_dsa_sha2_golden_vectors.d.ts
-      nodejs/tests/ml_dsa_44_golden_vectors.js
-      nodejs/tests/ml_dsa_44_golden_vectors.d.ts
-      nodejs/tests/secp256k1_bip340_golden_vectors.js
-      nodejs/tests/secp256k1_bip340_golden_vectors.d.ts
-      wasm/test/slh_dsa_sha2_golden_vectors.js
-      wasm/test/ml_dsa_44_golden_vectors.js
-      wasm/test/secp256k1_bip340_golden_vectors.js
+      tests/vectors/fixtures
+      tests/vectors/rust
+      tests/vectors/python
+      tests/vectors/nodejs
+      tests/vectors/wasm
     )
+    c_vectors="tests/vectors"
+    # CI uses a clean checkout (full-tree git diff). Locally, scope to vector
+    # artifacts so unrelated WIP does not fail this gate.
+    # After regenerate: no unstaged content drift, and no untracked files under
+    # algorithm vector paths (staged adds/modifies are OK while preparing a commit).
     git diff --exit-code -- "${bindings_paths[@]}"
-    git -C "$c_lib_repo" diff --exit-code -- tests/vectors
+    untracked=$(git status --porcelain -- "${bindings_paths[@]}" | grep '^??' || true)
+    test -z "$untracked"
+    git -C libbitcoinpqc diff --exit-code -- "$c_vectors"
+    sub_untracked=$(git -C libbitcoinpqc status --porcelain -- "$c_vectors" | grep '^??' || true)
+    test -z "$sub_untracked"
 
 no-skipped-tests:
     #!/usr/bin/env bash
@@ -121,7 +133,42 @@ no-skipped-tests:
 
 # ── Rust ─────────────────────────────────────────────────────────────────────
 
-rust: rust-lint rust-test fuzz-check
+# Rust checks without rust-cache scrub (faster local iteration).
+rust: rust-lint rust-build rust-test fuzz-check
+
+# Rust job as CI runs it (scrub + fmt + clippy + build + tests + fuzz check).
+ci-rust: rust-cache-scrub rust-lint rust-build rust-test fuzz-check
+
+# rust-cache can restore cmake build-script trees whose internal state no longer
+# matches libbitcoinpqc/; scrub before compile (CI does this before Rust/wasm jobs).
+rust-cache-scrub:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "=== scrub stale cmake artifacts from rust-cache ==="
+    rm -rf target/*/build/bitcoinpqc-*
+    rm -f target/*/deps/libbitcoinpqc*
+    rm -f target/*/deps/algorithm_tests-*
+    rm -f target/*/deps/serialization_tests-*
+
+# Nightly libFuzzer smoke on all five targets (2s each). Requires: rustup nightly, cargo-fuzz.
+fuzz-smoke:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! rustc +nightly --version >/dev/null 2>&1; then
+      echo "cargo-fuzz requires a nightly Rust toolchain." >&2
+      echo "Install with: rustup toolchain install nightly" >&2
+      exit 1
+    fi
+    if ! command -v cargo-fuzz >/dev/null 2>&1; then
+      echo "cargo-fuzz not found." >&2
+      echo "Install with: cargo install cargo-fuzz" >&2
+      exit 1
+    fi
+    targets=(keypair_generation sign_verify cross_algorithm key_parsing signature_parsing)
+    for target in "${targets[@]}"; do
+      echo "=== fuzz smoke: $target ==="
+      cargo +nightly fuzz run "$target" -- -max_total_time=2
+    done
 
 rust-lint:
     #!/usr/bin/env bash
@@ -131,13 +178,19 @@ rust-lint:
     echo "=== rust clippy ==="
     cargo clippy -- -D warnings
 
+rust-build:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "=== rust build ==="
+    cargo build --verbose
+
 rust-test:
     #!/usr/bin/env bash
     set -euo pipefail
     echo "=== rust tests (single-threaded) ==="
-    cargo test -- --test-threads=1
+    cargo test --verbose -- --test-threads=1
     echo "=== rust serde tests (single-threaded) ==="
-    cargo test --features serde -- --test-threads=1
+    cargo test --features serde --verbose -- --test-threads=1
 
 fuzz-check:
     #!/usr/bin/env bash

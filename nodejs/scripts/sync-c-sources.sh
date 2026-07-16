@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Script to sync C source files from the libbitcoinpqc submodule to src/c_sources
 # This should be run before building or publishing the package
@@ -43,10 +43,22 @@ echo "Copying custom randombytes files..."
 cp ../libbitcoinpqc/src/randombytes_custom.c src/c_sources/
 cp ../libbitcoinpqc/src/randombytes_custom.h src/c_sources/
 
-echo "Fetching libsecp256k1 v0.5.0..."
+# Keep in sync with libbitcoinpqc/CMakeLists.txt FetchContent GIT_TAG (v0.7.1).
+SECP_TAG="v0.7.1"
+SECP_COMMIT="1a53f4961f337b4d166c25fce72ef0dc88806618"
+echo "Fetching libsecp256k1 ${SECP_TAG}..."
 SECP_DIR=src/c_sources/secp256k1
 rm -rf "$SECP_DIR"
-git clone --depth 1 --branch v0.5.0 https://github.com/bitcoin-core/secp256k1.git "$SECP_DIR"
+if [ -n "${SECP256K1_SRC:-}" ] && [ -d "$SECP256K1_SRC" ]; then
+    cp -r "$SECP256K1_SRC" "$SECP_DIR"
+else
+    git clone --depth 1 --branch "$SECP_TAG" https://github.com/bitcoin-core/secp256k1.git "$SECP_DIR"
+    actual_commit="$(git -C "$SECP_DIR" rev-parse HEAD)"
+    if [ "$actual_commit" != "$SECP_COMMIT" ]; then
+        git -C "$SECP_DIR" fetch --depth 1 origin "$SECP_COMMIT"
+        git -C "$SECP_DIR" checkout "$SECP_COMMIT"
+    fi
+fi
 
 # Update include paths in C source files
 echo "Updating include paths..."

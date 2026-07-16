@@ -1,4 +1,4 @@
-@jbride/bitcoinpqc-wasm
+bitcoinpqc
 
 WebAssembly build of libbitcoinpqc for browser and Node.js — the three BIP 360 (P2MR) tapscript signature algorithms (classical secp256k1 Schnorr plus two post-quantum options).
 
@@ -16,7 +16,7 @@ WebAssembly build of libbitcoinpqc for browser and Node.js — the three BIP 360
 ## 2. Installation
 
 ```bash
-npm install @jbride/bitcoinpqc-wasm
+npm install bitcoinpqc
 ```
 
 ## Breaking Changes (Phase 2)

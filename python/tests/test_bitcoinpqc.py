@@ -3,7 +3,9 @@ import sys
 import secrets
 from pathlib import Path
 
+_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(_ROOT / "tests" / "vectors" / "python"))
 
 import bitcoinpqc
 from bitcoinpqc import Algorithm
@@ -173,6 +175,13 @@ class TestBitcoinPQC(unittest.TestCase):
             message,
             signature,
         ))
+        tampered = b"Bad message!"
+        self.assertFalse(bitcoinpqc.verify(
+            Algorithm.ML_DSA_44,
+            keypair.public_key,
+            tampered,
+            signature,
+        ))
 
     def test_slh_dsa_sha2_128s_golden_vectors(self):
         """Golden-vector regression from libbitcoinpqc reference."""
@@ -192,6 +201,13 @@ class TestBitcoinPQC(unittest.TestCase):
             Algorithm.SLH_DSA_SHA2_128S,
             keypair.public_key,
             message,
+            signature,
+        ))
+        tampered = b"Bad message!"
+        self.assertFalse(bitcoinpqc.verify(
+            Algorithm.SLH_DSA_SHA2_128S,
+            keypair.public_key,
+            tampered,
             signature,
         ))
 

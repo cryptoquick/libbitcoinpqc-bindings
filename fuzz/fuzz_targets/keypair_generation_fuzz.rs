@@ -16,13 +16,6 @@ fuzz_target!(|data: &[u8]| {
     // Rest is key generation data
     let key_data = &data[1..]; // Should be 129+ bytes
 
-    // Try to generate a keypair
-    let keypair_result = generate_keypair(algorithm, key_data);
-    assert!(
-        keypair_result.is_ok(),
-        "Keypair generation failed! Algorithm: {}",
-        algorithm.debug_name()
-    );
-    let _keypair = keypair_result.unwrap();
-    // Success!
+    // Invalid entropy must return Err without panicking (common for SECP256K1_SCHNORR).
+    let _ = generate_keypair(algorithm, key_data);
 });
