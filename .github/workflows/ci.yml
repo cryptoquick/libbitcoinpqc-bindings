@@ -94,6 +94,9 @@ jobs:
         with:
           shared-key: v2-${{ hashFiles('libbitcoinpqc/**', 'build.rs') }}
 
+      # rust-cache can restore cmake build-script trees whose internal state no
+      # longer matches libbitcoinpqc/; scrub before compile (local `just test`
+      # does not do this — Cargo rerun-if-changed is the hermetic invalidation).
       - name: Scrub stale cmake artifacts from rust-cache
         run: |
           rm -rf target/*/build/bitcoinpqc-*
@@ -157,6 +160,9 @@ jobs:
         with:
           shared-key: v2-${{ hashFiles('libbitcoinpqc/**', 'build.rs') }}
 
+      # rust-cache can restore cmake build-script trees whose internal state no
+      # longer matches libbitcoinpqc/; scrub before compile (local `just test`
+      # does not do this — Cargo rerun-if-changed is the hermetic invalidation).
       - name: Scrub stale cmake artifacts from rust-cache
         run: |
           rm -rf target/*/build/bitcoinpqc-*
@@ -296,6 +302,9 @@ jobs:
         with:
           shared-key: v2-${{ hashFiles('libbitcoinpqc/**', 'build.rs') }}
 
+      # rust-cache can restore cmake build-script trees whose internal state no
+      # longer matches libbitcoinpqc/; scrub before compile (local `just test`
+      # does not do this — Cargo rerun-if-changed is the hermetic invalidation).
       - name: Scrub stale cmake artifacts from rust-cache
         run: |
           rm -rf target/*/build/bitcoinpqc-*
@@ -413,6 +422,9 @@ jobs:
         with:
           shared-key: v2-${{ hashFiles('libbitcoinpqc/**', 'build.rs') }}
 
+      # rust-cache can restore cmake build-script trees whose internal state no
+      # longer matches libbitcoinpqc/; scrub before compile (local `just test`
+      # does not do this — Cargo rerun-if-changed is the hermetic invalidation).
       - name: Scrub stale cmake artifacts from rust-cache
         run: |
           rm -rf target/*/build/bitcoinpqc-*

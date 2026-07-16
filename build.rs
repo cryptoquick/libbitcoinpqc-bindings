@@ -222,16 +222,25 @@ fn rerun_if_sources_changed() {
     println!("cargo:rerun-if-env-changed=CC_wasm32-unknown-unknown");
 }
 
-fn generate_bindings() {
+fn libbitcoinpqc_include_dir(manifest_dir: &Path) -> PathBuf {
+    if let Ok(prefix) = env::var("LIBBITCOINPQC_PREFIX") {
+        PathBuf::from(prefix).join("include")
+    } else {
+        manifest_dir.join("libbitcoinpqc/include")
+    }
+}
+
+fn generate_bindings(manifest_dir: &Path) {
     // Always parse headers with the host triple so cross-compiles get full FFI.
     // Layout tests are disabled because struct sizes differ on wasm32 (usize = 32-bit).
     let host = env::var("HOST").expect("HOST not set");
-    let manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
+    let include_dir = libbitcoinpqc_include_dir(manifest_dir);
+    let header = include_dir.join("libbitcoinpqc/bitcoinpqc.h");
 
     let bindings = bindgen::Builder::default()
-        .header("libbitcoinpqc/include/libbitcoinpqc/bitcoinpqc.h")
+        .header(header.to_str().expect("valid UTF-8 header path"))
         .clang_arg(format!("--target={host}"))
-        .clang_arg(format!("-I{manifest_dir}/libbitcoinpqc/include"))
+        .clang_arg(format!("-I{}", include_dir.display()))
         .bitfield_enum("bitcoin_pqc_algorithm_t")
         .bitfield_enum("bitcoin_pqc_error_t")
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
@@ -248,12 +257,32 @@ fn generate_bindings() {
         .expect("Couldn't write bindings!");
 }
 
+fn link_native_libbitcoinpqc(prefix: &Path) {
+    let lib_dir = prefix.join("lib");
+    println!("cargo:rustc-link-search=native={}", lib_dir.display());
+    println!("cargo:rustc-link-lib=static=bitcoinpqc");
+    println!("cargo:rustc-link-lib=static=secp256k1");
+    println!("cargo:rustc-link-lib=pthread");
+    println!("cargo:rustc-link-lib=m");
+    // Full archive paths avoid colliding with the Rust secp256k1-sys crate's prefixed symbols.
+    println!(
+        "cargo:rustc-link-arg={}",
+        lib_dir.join("libbitcoinpqc.a").display()
+    );
+    println!(
+        "cargo:rustc-link-arg={}",
+        lib_dir.join("libsecp256k1.a").display()
+    );
+}
+
 fn main() {
     rerun_if_sources_changed();
+    println!("cargo:rerun-if-env-changed=LIBBITCOINPQC_PREFIX");
 
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
     let cmake_lists = manifest_dir.join("libbitcoinpqc/CMakeLists.txt");
-    if !cmake_lists.exists() {
+    let lib_prefix = env::var("LIBBITCOINPQC_PREFIX").ok();
+    if lib_prefix.is_none() && !cmake_lists.exists() {
         panic!(
             "libbitcoinpqc submodule not initialized (missing {}). \
              Run: git submodule update --init --recursive",
@@ -265,12 +294,12 @@ fn main() {
 
     if target.starts_with("wasm32") {
         build_wasm_lib(&manifest_dir);
+    } else if let Some(prefix) = lib_prefix {
+        link_native_libbitcoinpqc(Path::new(&prefix));
     } else {
         let dst = cmake::build("libbitcoinpqc");
-        println!("cargo:rustc-link-search=native={}/lib", dst.display());
-        println!("cargo:rustc-link-lib=static=bitcoinpqc");
-        println!("cargo:rustc-link-lib=static=secp256k1");
+        link_native_libbitcoinpqc(&dst);
     }
 
-    generate_bindings();
+    generate_bindings(&manifest_dir);
 }

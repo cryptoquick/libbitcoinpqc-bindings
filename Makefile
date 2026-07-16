@@ -92,7 +92,7 @@ cmake-build:
 	@cmake --build $(BUILD_DIR) $(if $(filter 1,$(VERBOSE)),--verbose,)
 
 .PHONY: c-lib-test
-c-lib-test:
+c-lib-test: submodule-check
 	@echo -e "${BLUE}Building and testing C library (golden vectors)...${NC}"
 	@cmake -B $(BUILD_DIR) -S libbitcoinpqc -DBUILD_TESTS=ON -DCMAKE_BUILD_TYPE=$(if $(filter 1,$(DEBUG)),Debug,Release)
 	@cmake --build $(BUILD_DIR) $(if $(filter 1,$(VERBOSE)),--verbose,)
