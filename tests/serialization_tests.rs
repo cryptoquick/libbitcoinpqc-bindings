@@ -1,7 +1,23 @@
+mod common;
+
+#[path = "vectors/rust/ml_dsa_44_golden_vectors.rs"]
+mod ml_dsa_golden_vectors;
+#[path = "vectors/rust/secp256k1_bip340_golden_vectors.rs"]
+mod secp_golden_vectors;
+#[path = "vectors/rust/slh_dsa_sha2_golden_vectors.rs"]
+mod slh_golden_vectors;
+
 use hex::{decode as hex_decode, encode as hex_encode};
 use rand::{rng, RngCore};
 
 use bitcoinpqc::{generate_keypair, sign, verify, Algorithm, PublicKey, SecretKey, Signature};
+use ml_dsa_golden_vectors::{
+    ML_DSA_44_EXPECTED_PK, ML_DSA_44_EXPECTED_SIG, ML_DSA_44_TEST_ENTROPY, ML_DSA_44_TEST_MESSAGE,
+};
+use slh_golden_vectors::{
+    SLH_DSA_SHA2_EXPECTED_PK, SLH_DSA_SHA2_EXPECTED_SIG, SLH_DSA_SHA2_TEST_ENTROPY,
+    SLH_DSA_SHA2_TEST_MESSAGE,
+};
 
 // Original random data generation function (commented out for deterministic tests)
 fn _get_random_bytes_original(size: usize) -> Vec<u8> {
@@ -33,7 +49,7 @@ fn get_random_bytes(size: usize) -> Vec<u8> {
     }
 }
 
-#[test]
+integration_test! {
 fn test_public_key_serialization() {
     // Generate a keypair with deterministic data
     let random_data = get_random_bytes(128);
@@ -83,8 +99,9 @@ fn test_public_key_serialization() {
         "Verification with reconstructed public key failed"
     );
 }
+}
 
-#[test]
+integration_test! {
 fn test_secret_key_serialization() {
     // Generate a keypair with deterministic data
     let random_data = get_random_bytes(128);
@@ -124,8 +141,9 @@ fn test_secret_key_serialization() {
         "Verification of signature from reconstructed secret key failed"
     );
 }
+}
 
-#[test]
+integration_test! {
 fn test_signature_serialization() {
     // Generate a keypair with deterministic data
     let random_data = get_random_bytes(128);
@@ -161,8 +179,9 @@ fn test_signature_serialization() {
         "Verification with reconstructed signature failed"
     );
 }
+}
 
-#[test]
+integration_test! {
 fn test_cross_algorithm_serialization_failure() {
     // Generate keypairs for different algorithms with deterministic data
     let random_data = get_random_bytes(128);
@@ -209,94 +228,84 @@ fn test_cross_algorithm_serialization_failure() {
         "Verification should fail when signature algorithm doesn't match public key algorithm"
     );
 }
+}
 
-// Add new test for serialization consistency
-#[test]
+integration_test! {
 fn test_serialization_consistency() {
-    // Generate keypairs for each algorithm using deterministic data
-    let random_data = get_random_bytes(128);
-
-    // ML-DSA-44
-    let ml_keypair = generate_keypair(Algorithm::ML_DSA_44, &random_data)
+    let ml_keypair = generate_keypair(Algorithm::ML_DSA_44, ML_DSA_44_TEST_ENTROPY)
         .expect("Failed to generate ML-DSA keypair");
 
-    // Expected ML-DSA key serialization (from test output)
-    let expected_ml_pk_prefix = "b3f22d3e1f93e3122063898b98eb89e6";
-    let expected_ml_sk_prefix = "b3f22d3e1f93e3122063898b98eb89e6";
-
-    // Print and verify ML-DSA public key
-    let actual_ml_pk_prefix = hex_encode(&ml_keypair.public_key.bytes[0..16]);
-    println!("ML-DSA-44 public key prefix: {actual_ml_pk_prefix}");
-
     assert_eq!(
-        actual_ml_pk_prefix, expected_ml_pk_prefix,
-        "ML-DSA-44 public key serialization should be deterministic"
+        ml_keypair.public_key.bytes.as_slice(),
+        ML_DSA_44_EXPECTED_PK,
+        "ML-DSA-44 public key should match golden fixture"
     );
 
-    // Print and verify ML-DSA secret key
-    let actual_ml_sk_prefix = hex_encode(&ml_keypair.secret_key.bytes[0..16]);
-    println!("ML-DSA-44 secret key prefix: {actual_ml_sk_prefix}");
-
-    assert_eq!(
-        actual_ml_sk_prefix, expected_ml_sk_prefix,
-        "ML-DSA-44 secret key serialization should be deterministic"
-    );
-
-    // SLH-DSA-128S - Just print for informational purposes
-    let slh_keypair = generate_keypair(Algorithm::SLH_DSA_SHA2_128S, &random_data)
+    let slh_keypair = generate_keypair(Algorithm::SLH_DSA_SHA2_128S, SLH_DSA_SHA2_TEST_ENTROPY)
         .expect("Failed to generate SLH-DSA keypair");
 
-    println!(
-        "SLH-DSA-128S public key prefix: {}",
-        hex_encode(&slh_keypair.public_key.bytes[0..16])
-    );
-    println!(
-        "SLH-DSA-128S secret key prefix: {}",
-        hex_encode(&slh_keypair.secret_key.bytes[0..16])
+    assert_eq!(
+        slh_keypair.public_key.bytes.as_slice(),
+        SLH_DSA_SHA2_EXPECTED_PK,
+        "SLH-DSA-SHA2-128S public key should match golden fixture"
     );
 
-    // Test serialization/deserialization consistency
-    let message = b"Serialization consistency test";
+    let ml_sig = sign(&ml_keypair.secret_key, ML_DSA_44_TEST_MESSAGE)
+        .expect("Failed to sign with ML-DSA-44");
 
-    // ML-DSA-44 signature consistency
-    let ml_sig = sign(&ml_keypair.secret_key, message).expect("Failed to sign with ML-DSA-44");
-
-    // Print ML-DSA signature for informational purposes
-    println!(
-        "ML-DSA-44 signature prefix: {}",
-        hex_encode(&ml_sig.bytes[0..16])
+    assert_eq!(
+        ml_sig.bytes.as_slice(),
+        ML_DSA_44_EXPECTED_SIG,
+        "ML-DSA-44 signature should match golden fixture"
     );
 
-    // Verify keys generated with the same random data are consistent
-    let new_ml_keypair = generate_keypair(Algorithm::ML_DSA_44, &random_data)
+    let new_ml_keypair = generate_keypair(Algorithm::ML_DSA_44, ML_DSA_44_TEST_ENTROPY)
         .expect("Failed to generate second ML-DSA-44 keypair");
 
     assert_eq!(
-        hex_encode(&ml_keypair.public_key.bytes),
-        hex_encode(&new_ml_keypair.public_key.bytes),
+        ml_keypair.public_key.bytes, new_ml_keypair.public_key.bytes,
         "ML-DSA-44 public key generation should be deterministic"
     );
 
     assert_eq!(
-        hex_encode(&ml_keypair.secret_key.bytes),
-        hex_encode(&new_ml_keypair.secret_key.bytes),
+        ml_keypair.secret_key.bytes, new_ml_keypair.secret_key.bytes,
         "ML-DSA-44 secret key generation should be deterministic"
     );
+
+    let slh_sig = sign(&slh_keypair.secret_key, SLH_DSA_SHA2_TEST_MESSAGE)
+        .expect("Failed to sign with SLH-DSA-SHA2-128S");
+
+    assert_eq!(
+        slh_sig.bytes.as_slice(),
+        SLH_DSA_SHA2_EXPECTED_SIG,
+        "SLH-DSA-SHA2-128S signature should match golden fixture"
+    );
+
+    assert!(
+        verify(&slh_keypair.public_key, SLH_DSA_SHA2_TEST_MESSAGE, &slh_sig).is_ok(),
+        "SLH-DSA-SHA2-128S golden signature should verify"
+    );
+}
 }
 
-#[path = "vectors/slh_dsa_sha2_golden_vectors.rs"]
-mod golden_vectors;
-
 #[cfg(feature = "serde")]
-#[test]
+integration_test! {
 fn test_serde_roundtrip() {
-    use golden_vectors::{SLH_DSA_SHA2_TEST_ENTROPY, SLH_DSA_SHA2_TEST_MESSAGE};
-
-    let ml_random = get_random_bytes(128);
-    let ml_message = b"Serde roundtrip test message";
+    use ml_dsa_golden_vectors::{ML_DSA_44_TEST_ENTROPY, ML_DSA_44_TEST_MESSAGE};
+    use secp_golden_vectors::{SECP256K1_BIP340_ROW0_MESSAGE, SECP256K1_BIP340_ROW0_SECRET};
+    use slh_golden_vectors::{SLH_DSA_SHA2_TEST_ENTROPY, SLH_DSA_SHA2_TEST_MESSAGE};
 
     let test_cases: Vec<(Algorithm, &[u8], &[u8])> = vec![
-        (Algorithm::ML_DSA_44, &ml_random, ml_message),
+        (
+            Algorithm::SECP256K1_SCHNORR,
+            SECP256K1_BIP340_ROW0_SECRET,
+            SECP256K1_BIP340_ROW0_MESSAGE,
+        ),
+        (
+            Algorithm::ML_DSA_44,
+            ML_DSA_44_TEST_ENTROPY,
+            ML_DSA_44_TEST_MESSAGE,
+        ),
         (
             Algorithm::SLH_DSA_SHA2_128S,
             SLH_DSA_SHA2_TEST_ENTROPY,
@@ -343,9 +352,69 @@ fn test_serde_roundtrip() {
         );
     }
 }
+}
 
 #[cfg(feature = "serde")]
-#[test]
+integration_test! {
+fn test_keypair_serde_roundtrip() {
+    use bitcoinpqc::KeyPair;
+    use ml_dsa_golden_vectors::ML_DSA_44_TEST_ENTROPY;
+    use secp_golden_vectors::SECP256K1_BIP340_ROW0_SECRET;
+    use slh_golden_vectors::SLH_DSA_SHA2_TEST_ENTROPY;
+
+    let test_cases: Vec<(Algorithm, &[u8])> = vec![
+        (Algorithm::SECP256K1_SCHNORR, SECP256K1_BIP340_ROW0_SECRET),
+        (Algorithm::ML_DSA_44, ML_DSA_44_TEST_ENTROPY),
+        (Algorithm::SLH_DSA_SHA2_128S, SLH_DSA_SHA2_TEST_ENTROPY),
+    ];
+
+    for (algorithm, random_data) in test_cases {
+        let keypair = generate_keypair(algorithm, random_data)
+            .unwrap_or_else(|_| panic!("Failed to generate keypair for {algorithm:?}"));
+
+        let json = serde_json::to_string(&keypair).expect("Failed to serialize KeyPair");
+        let reconstructed: KeyPair =
+            serde_json::from_str(&json).expect("Failed to deserialize KeyPair");
+
+        assert_eq!(keypair, reconstructed, "KeyPair roundtrip failed for {algorithm:?}");
+    }
+}
+}
+
+#[cfg(feature = "serde")]
+integration_test! {
+fn test_serde_hex_format() {
+    use secp_golden_vectors::SECP256K1_BIP340_ROW0_SECRET;
+
+    let keypair = generate_keypair(Algorithm::SECP256K1_SCHNORR, SECP256K1_BIP340_ROW0_SECRET)
+        .expect("Failed to generate secp256k1 keypair");
+
+    let pk_json = serde_json::to_string(&keypair.public_key).expect("serialize PublicKey");
+    let sk_json = serde_json::to_string(&keypair.secret_key).expect("serialize SecretKey");
+
+    let pk_value: serde_json::Value = serde_json::from_str(&pk_json).expect("parse PublicKey JSON");
+    let sk_value: serde_json::Value = serde_json::from_str(&sk_json).expect("parse SecretKey JSON");
+
+    let pk_hex = pk_value["bytes"].as_str().expect("PublicKey bytes field");
+    let sk_hex = sk_value["bytes"].as_str().expect("SecretKey bytes field");
+
+    assert_eq!(
+        pk_hex,
+        pk_hex.to_lowercase(),
+        "PublicKey hex must be lowercase in JSON"
+    );
+    assert_eq!(
+        sk_hex,
+        sk_hex.to_lowercase(),
+        "SecretKey hex must be lowercase in JSON"
+    );
+    assert_eq!(pk_hex.len(), 64, "secp256k1 public key hex length");
+    assert_eq!(sk_hex.len(), 64, "secp256k1 secret key hex length");
+}
+}
+
+#[cfg(feature = "serde")]
+integration_test! {
 fn test_reject_legacy_slh_dsa_128s_string() {
     let legacy_pk = r#"{"algorithm":"SLH_DSA_128S","bytes":"00"}"#;
     let result: Result<PublicKey, _> = serde_json::from_str(legacy_pk);
@@ -360,4 +429,5 @@ fn test_reject_legacy_slh_dsa_128s_string() {
         result.is_err(),
         "Legacy SLH_DSA_SHAKE_128S algorithm string should be rejected"
     );
+}
 }

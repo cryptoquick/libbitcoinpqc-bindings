@@ -23,6 +23,15 @@ library avoids making assumptions about the caller's security requirements.
 
 ## How the Library Consumes Entropy
 
+### SECP256K1_SCHNORR (BIP-340)
+
+For Schnorr key generation, the bindings treat the entropy buffer as the secret
+key material. Provide exactly **32 bytes**. Invalid scalars are rejected.
+
+Messages must be at least **32 bytes** for sign and verify (BIP-340 tagged hash
+input). This differs from the PQC algorithms, which accept arbitrary-length
+messages.
+
 ### ML-DSA-44 (CRYSTALS-Dilithium)
 
 `ml_dsa_44_keygen()` passes your entropy buffer to the internal Dilithium
@@ -37,12 +46,12 @@ deterministically by Dilithium's internal key derivation.
 `crypto_sign_seed_keypair()`, which uses the first `3 * SPX_N` bytes as the
 seed. For SHA2-128s, `SPX_N = 16`, so **48 bytes** are consumed.
 
-### The 128-Byte Minimum
+### The 128-Byte Minimum (PQC only)
 
-Both keygen functions reject buffers smaller than 128 bytes. This minimum
-provides a comfortable margin above the actual consumption (32 or 48 bytes)
-and ensures callers provide a meaningful amount of entropy rather than a
-handful of bytes that might be poorly generated.
+`ML_DSA_44` and `SLH_DSA_SHA2_128S` keygen reject buffers smaller than
+128 bytes. This provides a comfortable margin above actual consumption (32
+or 48 bytes) and ensures callers supply meaningful entropy. `SECP256K1_SCHNORR`
+uses the separate 32-byte rule above.
 
 ### Key generation determinism
 
@@ -54,8 +63,10 @@ Providing identical entropy produces identical keys. This is by design:
 
 ### Signing determinism
 
-Signing does **not** accept caller-provided entropy. Both algorithms derive
-signing randomness deterministically from the message and secret key:
+Signing does **not** accept caller-provided entropy. PQC algorithms derive
+signing randomness deterministically from the message and secret key.
+`SECP256K1_SCHNORR` follows BIP-340 Schnorr semantics (no extra signing
+entropy from the caller).
 
 **ML-DSA-44** uses SHAKE-256 over `sk ‖ m` (see `ml_dsa_derandomize()`).
 

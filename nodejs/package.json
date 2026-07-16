@@ -1,6 +1,6 @@
 {
-  "name": "@jbride/bitcoinpqc",
-  "version": "0.2.9",
+  "name": "bitcoinpqc",
+  "version": "0.4.1",
   "description": "NodeJS TypeScript bindings for Bitcoin PQC library",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -25,7 +25,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/bitcoin/libbitcoinpqc.git",
+    "url": "https://github.com/jbride/libbitcoinpqc-bindings.git",
     "directory": "nodejs"
   },
   "bugs": {
@@ -51,10 +51,22 @@
     "binding.gyp",
     "tsconfig.json",
     "src/native",
-    "src/c_sources"
+    "src/c_sources",
+    "wasm"
   ],
   "gypfile": true,
   "publishConfig": {
     "access": "public"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "node": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./wasm": {
+      "types": "./wasm/index.d.ts",
+      "default": "./wasm/index.js"
+    }
   }
 }

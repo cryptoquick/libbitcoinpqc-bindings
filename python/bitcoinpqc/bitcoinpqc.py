@@ -461,10 +461,20 @@ def signature_size(algorithm: Algorithm) -> int:
     return _lib.bitcoin_pqc_signature_size(algorithm)
 
 
+def _min_keygen_entropy_size(algorithm: Algorithm) -> int:
+    """Minimum entropy length required for key generation."""
+    if algorithm == Algorithm.SECP256K1_SCHNORR:
+        return 32
+    return 128
+
+
 def keygen(algorithm: Algorithm, random_data: bytes) -> KeyPair:
     """Generate a key pair."""
-    if len(random_data) < 128:
-        raise ValueError("Random data must be at least 128 bytes")
+    min_size = _min_keygen_entropy_size(algorithm)
+    if len(random_data) < min_size:
+        raise ValueError(
+            f"Random data must be at least {min_size} bytes for {algorithm.name}"
+        )
 
     random_buffer = (ctypes.c_uint8 * len(random_data)).from_buffer_copy(random_data)
     keypair = _CKeyPair()
@@ -484,6 +494,11 @@ def keygen(algorithm: Algorithm, random_data: bytes) -> KeyPair:
 
 def sign(algorithm: Algorithm, secret_key: bytes, message: bytes) -> Signature:
     """Sign a message."""
+    if algorithm == Algorithm.SECP256K1_SCHNORR and len(message) < 32:
+        raise ValueError(
+            "Message must be at least 32 bytes for SECP256K1_SCHNORR (BIP-340 message hash)"
+        )
+
     secret_buffer = (ctypes.c_uint8 * len(secret_key)).from_buffer_copy(secret_key)
     message_buffer = (ctypes.c_uint8 * len(message)).from_buffer_copy(message)
     signature = _CSignature()
@@ -505,6 +520,11 @@ def sign(algorithm: Algorithm, secret_key: bytes, message: bytes) -> Signature:
 
 def verify(algorithm: Algorithm, public_key: bytes, message: bytes, signature: Union[Signature, bytes]) -> bool:
     """Verify a signature."""
+    if algorithm == Algorithm.SECP256K1_SCHNORR and len(message) < 32:
+        raise ValueError(
+            "Message must be at least 32 bytes for SECP256K1_SCHNORR (BIP-340 message hash)"
+        )
+
     public_buffer = (ctypes.c_uint8 * len(public_key)).from_buffer_copy(public_key)
     message_buffer = (ctypes.c_uint8 * len(message)).from_buffer_copy(message)
 

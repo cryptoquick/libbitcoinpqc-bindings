@@ -50,11 +50,15 @@ export function signatureSize(algorithm: Algorithm): number {
   return getLibrary().bitcoin_pqc_signature_size(algorithm);
 }
 
+function minKeygenEntropySize(algorithm: Algorithm): number {
+  return algorithm === Algorithm.SECP256K1_SCHNORR ? 32 : 128;
+}
+
 /**
  * Generate a key pair for the specified algorithm
  *
  * @param algorithm - The PQC algorithm to use
- * @param randomData - Random bytes for key generation (must be at least 128 bytes)
+ * @param randomData - Random bytes for key generation (32 bytes for secp, 128 for PQC)
  * @returns A new key pair
  * @throws {PqcError} If key generation fails
  */
@@ -69,10 +73,11 @@ export function generateKeyPair(
     );
   }
 
-  if (randomData.length < 128) {
+  const minEntropy = minKeygenEntropySize(algorithm);
+  if (randomData.length < minEntropy) {
     throw new PqcError(
       ErrorCode.BAD_ARGUMENT,
-      "Random data must be at least 128 bytes"
+      `Random data must be at least ${minEntropy} bytes for ${Algorithm[algorithm]}`
     );
   }
 
@@ -107,6 +112,16 @@ export function sign(secretKey: SecretKey, message: Uint8Array): Signature {
 
   if (!(message instanceof Uint8Array)) {
     throw new PqcError(ErrorCode.BAD_ARGUMENT, "Message must be a Uint8Array");
+  }
+
+  if (
+    secretKey.algorithm === Algorithm.SECP256K1_SCHNORR &&
+    message.length < 32
+  ) {
+    throw new PqcError(
+      ErrorCode.BAD_ARGUMENT,
+      "Message must be at least 32 bytes for SECP256K1_SCHNORR (BIP-340 message hash)"
+    );
   }
 
   const lib = getLibrary();
@@ -146,6 +161,16 @@ export function verify(
 
   if (!(message instanceof Uint8Array)) {
     throw new PqcError(ErrorCode.BAD_ARGUMENT, "Message must be a Uint8Array");
+  }
+
+  if (
+    publicKey.algorithm === Algorithm.SECP256K1_SCHNORR &&
+    message.length < 32
+  ) {
+    throw new PqcError(
+      ErrorCode.BAD_ARGUMENT,
+      "Message must be at least 32 bytes for SECP256K1_SCHNORR (BIP-340 message hash)"
+    );
   }
 
   const lib = getLibrary();

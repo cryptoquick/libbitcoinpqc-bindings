@@ -172,7 +172,7 @@
 
         <div class="section">
             <h2>Run Full Tests</h2>
-            <p>This example tests the post-quantum signature algorithms designed for BIP-360 / P2TSH.
+            <p>This example tests the signature algorithms defined for P2MR (BIP 360).
                 fork.</p>
             <button id="testMlDsa" onclick="testAlgorithm(1, 'ML-DSA-44')" disabled>
                 Test ML-DSA-44
@@ -817,7 +817,7 @@
             const output = document.getElementById('output');
             output.textContent = 'Bitcoin PQC Library Example\n';
             output.textContent += '==========================\n\n';
-            output.textContent += 'This example tests the post-quantum signature algorithms designed for BIP-360 and the Bitcoin QuBit soft fork.\n';
+            output.textContent += 'This example tests the signature algorithms defined for P2MR (BIP 360).\n';
             output.textContent += `Using ${moduleType === 'lowlevel' ? 'Low-Level API' : 'High-Level API'}\n\n`;
 
             await testAlgorithm(1, 'ML-DSA-44');

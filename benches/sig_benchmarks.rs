@@ -38,8 +38,19 @@ fn get_random_data(size: usize) -> Vec<u8> {
 }
 
 // Configure benchmark group with common settings
+fn is_ci() -> bool {
+    std::env::var("CI").is_ok()
+}
+
 fn configure_group(group: &mut criterion::BenchmarkGroup<criterion::measurement::WallTime>) {
-    group.measurement_time(Duration::from_secs(10));
+    let measurement_secs = if is_ci() { 3 } else { 10 };
+    group.measurement_time(Duration::from_secs(measurement_secs));
+}
+
+fn configure_slh_group(group: &mut criterion::BenchmarkGroup<criterion::measurement::WallTime>) {
+    configure_group(group);
+    let sample_size = if is_ci() { 3 } else { 10 };
+    group.sample_size(sample_size);
 }
 
 // Helper function to store size results
@@ -100,8 +111,7 @@ fn bench_ml_dsa_44_verification(c: &mut Criterion) {
 
 fn bench_slh_dsa_128s_keygen(c: &mut Criterion) {
     let mut group = c.benchmark_group("slh_dsa_keygen");
-    configure_group(&mut group);
-    group.sample_size(10); // Reduce sample count for SLH-DSA which is slower
+    configure_slh_group(&mut group);
 
     group.bench_function("SLH_DSA_SHA2_128S", |b| {
         b.iter(|| {
@@ -115,8 +125,7 @@ fn bench_slh_dsa_128s_keygen(c: &mut Criterion) {
 
 fn bench_slh_dsa_128s_signing(c: &mut Criterion) {
     let mut group = c.benchmark_group("slh_dsa_signing");
-    configure_group(&mut group);
-    group.sample_size(10); // Reduce sample count for SLH-DSA which is slower
+    configure_slh_group(&mut group);
 
     let message = b"This is a test message for benchmarking";
     let random_data = get_random_data(256);
@@ -131,8 +140,7 @@ fn bench_slh_dsa_128s_signing(c: &mut Criterion) {
 
 fn bench_slh_dsa_128s_verification(c: &mut Criterion) {
     let mut group = c.benchmark_group("slh_dsa_verification");
-    configure_group(&mut group);
-    group.sample_size(10); // Reduce sample count for SLH-DSA which is slower
+    configure_slh_group(&mut group);
 
     let message = b"This is a test message for benchmarking";
     let random_data = get_random_data(256);

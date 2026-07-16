@@ -81,7 +81,9 @@ class MockBitcoinPqcNative implements BitcoinPqcNative {
     algorithm: number,
     randomData: Uint8Array
   ): { publicKey: Uint8Array; secretKey: Uint8Array; resultCode: number } {
-    if (randomData.length < 128) {
+    const minEntropy =
+      algorithm === Algorithm.SECP256K1_SCHNORR ? 32 : 128;
+    if (randomData.length < minEntropy) {
       return {
         publicKey: new Uint8Array(0),
         secretKey: new Uint8Array(0),

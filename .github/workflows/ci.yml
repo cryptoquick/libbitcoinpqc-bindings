@@ -2,17 +2,76 @@ name: Rust CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, 27-slh-dsa-sha-2-128s, wasm-tests ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, 27-slh-dsa-sha-2-128s, wasm-tests ]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  vectors-in-sync:
+    name: Golden Vectors In Sync
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Regenerate golden vectors from fixtures
+        run: make sync-vectors
+
+      - name: Fail if generated artifacts differ from committed files
+        run: |
+          git diff --exit-code
+          test -z "$(git status --porcelain)"
+          git -C libbitcoinpqc diff --exit-code
+          test -z "$(git -C libbitcoinpqc status --porcelain)"
+
+  # Scans in-repo E2E test trees only (no submodules). libbitcoinpqc/tests/ is
+  # intentionally out of scope — C unit tests use ctest, not skip/ignore markers.
+  no-skipped-tests:
+    name: No Skipped Tests Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ensure ripgrep is available
+        run: |
+          if ! command -v rg >/dev/null 2>&1; then
+            sudo apt-get install -y ripgrep
+          fi
+          rg --version
+
+      # Scope: Rust #[ignore*], Jest it/describe/test.skip, Python @unittest.skip /
+      # @pytest.mark.skip in language-binding E2E trees only.
+      - name: Fail if skipped/ignored tests remain in E2E test trees
+        run: |
+          set +e
+          rg '#\[ignore|it\.skip|describe\.skip|test\.skip|@unittest\.skip|@pytest\.mark\.skip' \
+            tests/ python/tests nodejs/tests wasm/test
+          code=$?
+          set -e
+          case "$code" in
+            0)
+              echo "Skipped/ignored tests found in E2E trees"
+              exit 1
+              ;;
+            1)
+              echo "Gate passed: no skipped/ignored tests"
+              ;;
+            *)
+              echo "ripgrep failed with exit code $code"
+              exit "$code"
+              ;;
+          esac
+
   test:
     name: Test
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -29,7 +88,20 @@ jobs:
           components: clippy, rustfmt
 
       - name: Cache dependencies
+        id: rust-cache
         uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: v2-${{ hashFiles('libbitcoinpqc/**', 'build.rs') }}
+
+      # rust-cache can restore cmake build-script trees whose internal state no
+      # longer matches libbitcoinpqc/; scrub before compile (local `just test`
+      # does not do this — Cargo rerun-if-changed is the hermetic invalidation).
+      - name: Scrub stale cmake artifacts from rust-cache
+        run: |
+          rm -rf target/*/build/bitcoinpqc-*
+          rm -f target/*/deps/libbitcoinpqc*
+          rm -f target/*/deps/algorithm_tests-*
+          rm -f target/*/deps/serialization_tests-*
 
       - name: Check code format
         run: cargo fmt -- --check
@@ -41,10 +113,10 @@ jobs:
         run: cargo build --verbose
 
       - name: Run tests
-        run: cargo test --verbose
+        run: cargo test --verbose -- --test-threads=1
 
       - name: Run serde tests
-        run: cargo test --features serde --verbose
+        run: cargo test --features serde --verbose -- --test-threads=1
 
       - name: Check fuzz workspace
         run: cargo check
@@ -53,10 +125,10 @@ jobs:
   build-matrix:
     name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     strategy:
       matrix:
-        os: [ubuntu-latest]
-        # os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest]
         rust: [stable]
       fail-fast: false
     steps:
@@ -82,7 +154,20 @@ jobs:
           components: clippy, rustfmt
 
       - name: Cache dependencies
+        id: rust-cache
         uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: v2-${{ hashFiles('libbitcoinpqc/**', 'build.rs') }}
+
+      # rust-cache can restore cmake build-script trees whose internal state no
+      # longer matches libbitcoinpqc/; scrub before compile (local `just test`
+      # does not do this — Cargo rerun-if-changed is the hermetic invalidation).
+      - name: Scrub stale cmake artifacts from rust-cache
+        run: |
+          rm -rf target/*/build/bitcoinpqc-*
+          rm -f target/*/deps/libbitcoinpqc*
+          rm -f target/*/deps/algorithm_tests-*
+          rm -f target/*/deps/serialization_tests-*
 
       - name: Check code format
         run: cargo fmt -- --check
@@ -94,14 +179,19 @@ jobs:
         run: cargo build --verbose
 
       - name: Run tests
-        run: cargo test --verbose
+        run: cargo test --verbose -- --test-threads=1
 
       - name: Run serde tests
-        run: cargo test --features serde --verbose
+        run: cargo test --features serde --verbose -- --test-threads=1
+
+      - name: Check fuzz workspace
+        run: cargo check
+        working-directory: fuzz
 
   c-lib-test:
     name: C Library Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -129,17 +219,28 @@ jobs:
         run: ctest --test-dir build --output-on-failure
 
   python-test:
-    name: Python Tests
-    runs-on: ubuntu-latest
+    name: Python Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+      fail-fast: false
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Install dependencies
+      - name: Install dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake libssl-dev
+
+      - name: Install dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install cmake
 
       - name: Cache CMake build
         uses: actions/cache@v4
@@ -158,18 +259,134 @@ jobs:
         run: python3 -m unittest discover -s tests -v
         working-directory: python
 
-  nodejs-test:
-    name: NodeJS Tests
+  wasm-test:
+    name: WASM Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Install dependencies
+      # CC_wasm32-unknown-unknown is set in .cargo/config.toml (wasm/clang-wasm32.sh)
+      - name: Install clang
+        run: sudo apt-get update && sudo apt-get install -y clang
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Cache wasm-pack binary
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/wasm-pack
+          key: wasm-pack-${{ runner.os }}-locked
+
+      - name: Install wasm-pack
+        run: |
+          if ! command -v wasm-pack >/dev/null 2>&1; then
+            cargo install wasm-pack --locked
+          fi
+          wasm-pack --version
+
+      - name: Cache dependencies
+        id: rust-cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: v2-${{ hashFiles('libbitcoinpqc/**', 'build.rs') }}
+
+      # rust-cache can restore cmake build-script trees whose internal state no
+      # longer matches libbitcoinpqc/; scrub before compile (local `just test`
+      # does not do this — Cargo rerun-if-changed is the hermetic invalidation).
+      - name: Scrub stale cmake artifacts from rust-cache
+        run: |
+          rm -rf target/*/build/bitcoinpqc-*
+          rm -f target/*/deps/libbitcoinpqc*
+          rm -f target/*/deps/algorithm_tests-*
+          rm -f target/*/deps/serialization_tests-*
+
+      - name: Check wasm32 build
+        run: cargo check --target wasm32-unknown-unknown
+
+      - name: Run wasm integration tests (3-algorithm E2E)
+        run: make wasm-test
+
+  emscripten-wasm-test:
+    name: Emscripten WASM Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: wasm/package-lock.json
+
+      # Ubuntu's apt `emscripten` is ancient (3.1.x) and rejects -s STACK_SIZE.
+      # Local dev uses system emcc on PATH (Arch 6.x etc.). CI installs current
+      # Emscripten via emsdk `latest` so runners match modern toolchains.
+      - name: Cache Emscripten SDK
+        uses: actions/cache@v4
+        with:
+          path: ~/emsdk
+          key: emsdk-latest-${{ runner.os }}
+
+      - name: Install Emscripten (emsdk latest)
+        run: |
+          if [ ! -f "$HOME/emsdk/emsdk" ]; then
+            git clone https://github.com/emscripten-core/emsdk.git "$HOME/emsdk"
+          fi
+          cd "$HOME/emsdk"
+          ./emsdk install latest
+          ./emsdk activate latest
+          # shellcheck disable=SC1091
+          source ./emsdk_env.sh
+          emcc --version | head -1
+
+      - name: Build and test Emscripten wasm package (3-algorithm E2E)
+        run: |
+          # shellcheck disable=SC1091
+          source "$HOME/emsdk/emsdk_env.sh"
+          cd wasm
+          npm ci
+          npm run build
+          npm test
+
+  nodejs-test:
+    name: NodeJS Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential cmake python3
+
+      - name: Install dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install cmake python3
+          python3 -m pip install --break-system-packages setuptools
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -185,26 +402,50 @@ jobs:
           npm test
         working-directory: nodejs
 
-  # benchmark:
-  #   name: Benchmark
-  #   runs-on: ubuntu-latest
-  #   needs: test
-  #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with:
-  #         submodules: recursive
+  benchmark:
+    name: Benchmark
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-  #     - name: Install dependencies
-  #       run: |
-  #         sudo apt-get update
-  #         sudo apt-get install -y build-essential cmake libssl-dev
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake libssl-dev
 
-  #     - name: Install Rust
-  #       uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
 
-  #     - name: Cache dependencies
-  #       uses: Swatinem/rust-cache@v2
+      - name: Cache dependencies
+        id: rust-cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: v2-${{ hashFiles('libbitcoinpqc/**', 'build.rs') }}
 
-  #     - name: Run benchmarks
-  #       run: cargo bench
+      # rust-cache can restore cmake build-script trees whose internal state no
+      # longer matches libbitcoinpqc/; scrub before compile (local `just test`
+      # does not do this — Cargo rerun-if-changed is the hermetic invalidation).
+      - name: Scrub stale cmake artifacts from rust-cache
+        run: |
+          rm -rf target/*/build/bitcoinpqc-*
+          rm -f target/*/deps/libbitcoinpqc*
+          rm -f target/*/deps/algorithm_tests-*
+          rm -f target/*/deps/serialization_tests-*
+
+      - name: Run benchmarks (informational)
+        env:
+          CI: true
+        run: cargo bench --features bench -- --noplot
+
+      - name: Upload criterion report
+        uses: actions/upload-artifact@v4
+        with:
+          name: criterion-report
+          path: target/criterion/
+          if-no-files-found: warn

@@ -7,27 +7,69 @@ set -e
 
 echo "Building Bitcoin PQC libraries for WebAssembly..."
 
-# Check if Emscripten is available
+# Require emcc on PATH (system package / nix / whatever). No emsdk version pin.
 if ! command -v emcc &> /dev/null; then
-    echo "Error: Emscripten (emcc) not found!"
-    echo "Please install and activate Emscripten SDK:"
-    echo "  git clone https://github.com/emscripten-core/emsdk.git"
-    echo "  cd emsdk"
-    echo "  ./emsdk install latest"
-    echo "  ./emsdk activate latest"
-    echo "  source ./emsdk_env.sh"
+    echo "Error: Emscripten (emcc) not found on PATH."
+    echo "Install Emscripten so emcc is available, e.g.:"
+    echo "  pacman -S emscripten"
+    echo "  nix-shell -p emscripten"
+    echo "  apt install emscripten"
     exit 1
 fi
+echo "Using $(command -v emcc)"
+emcc --version | head -1
 
 # Get the project root directory (assuming script is in wasm/bin)
 PROJECT_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-echo $PROJECT_ROOT
 cd "$PROJECT_ROOT"
 
 # Output directory
 OUTPUT_DIR="wasm/dist"
 OBJ_DIR="wasm/obj"
 mkdir -p "$OUTPUT_DIR" "$OBJ_DIR"
+
+# Fetch libsecp256k1 v0.7.1 (keep in sync with libbitcoinpqc/CMakeLists.txt)
+SECP_DIR="$PROJECT_ROOT/wasm/vendor/secp256k1"
+SECP_COMMIT="1a53f4961f337b4d166c25fce72ef0dc88806618"  # v0.7.1 tag
+
+fetch_secp256k1() {
+    echo "Fetching libsecp256k1 v0.7.1 (${SECP_COMMIT})..."
+    rm -rf "$SECP_DIR"
+    local cloned=0
+    local attempt
+    for attempt in 1 2 3; do
+        if git clone --depth 1 --branch v0.7.1 https://github.com/bitcoin-core/secp256k1.git "$SECP_DIR"; then
+            cloned=1
+            break
+        fi
+        rm -rf "$SECP_DIR"
+        if [ "$attempt" -lt 3 ]; then
+            echo "  Clone failed, retrying (attempt $((attempt + 1))/3)..."
+            sleep 2
+        fi
+    done
+    if [ "$cloned" -ne 1 ]; then
+        echo "Error: failed to clone libsecp256k1 after 3 attempts"
+        exit 1
+    fi
+    local actual_commit
+    actual_commit="$(git -C "$SECP_DIR" rev-parse HEAD)"
+    if [ "$actual_commit" != "$SECP_COMMIT" ]; then
+        echo "  Tag v0.7.1 resolved to ${actual_commit}; checking out pinned commit..."
+        git -C "$SECP_DIR" fetch --depth 1 origin "$SECP_COMMIT"
+        git -C "$SECP_DIR" checkout "$SECP_COMMIT"
+    fi
+}
+
+if [ ! -f "$SECP_DIR/src/secp256k1.c" ]; then
+    fetch_secp256k1
+else
+    actual_commit="$(git -C "$SECP_DIR" rev-parse HEAD 2>/dev/null || echo "")"
+    if [ "$actual_commit" != "$SECP_COMMIT" ]; then
+        echo "libsecp256k1 vendor commit mismatch (got ${actual_commit:-none}, want ${SECP_COMMIT}). Re-cloning..."
+        fetch_secp256k1
+    fi
+fi
 
 # Common compiler flags (shared between compile and link steps)
 COMMON_FLAGS=(
@@ -37,7 +79,22 @@ COMMON_FLAGS=(
     -DCUSTOM_RANDOMBYTES=1
 )
 
+# libsecp256k1 compile flags (WASM32: no x86_64 asm, use 10x26 field / 8x32 scalar)
+SECP_DEFINES=(
+    -DECMULT_GEN_PREC_BITS=4
+    -DECMULT_WINDOW_SIZE=15
+    -DENABLE_MODULE_SCHNORRSIG=1
+    -DENABLE_MODULE_EXTRAKEYS=1
+    -DUSE_NUM_NONE=1
+    -DUSE_FIELD_INV_BUILTIN=1
+    -DUSE_SCALAR_INV_BUILTIN=1
+    -DUSE_ENDOMORPHISM=1
+    -DUSE_FIELD_10X26=1
+    -DUSE_SCALAR_8X32=1
+)
+
 # Linker flags (only for the final link step)
+# Single-threaded default; Emscripten pthread stubs satisfy pthread_once in secp256k1_schnorr.c
 LINK_FLAGS=(
     -s WASM=1                        # Output WebAssembly
     -s EXPORTED_RUNTIME_METHODS='["ccall","cwrap","UTF8ToString","stringToUTF8","HEAP8","HEAP32","HEAPU8"]'
@@ -59,7 +116,11 @@ INCLUDE_DIRS=(
     -I"$PROJECT_ROOT/libbitcoinpqc/src"
     -I"$PROJECT_ROOT/libbitcoinpqc/dilithium/ref"
     -I"$PROJECT_ROOT/libbitcoinpqc/sphincsplus/ref"
+    -I"$SECP_DIR/include"
 )
+
+# secp256k1 Schnorr wrapper (compiled with SECP_DEFINES, separate from other API sources)
+SECP_SCHNORR_SOURCE="$PROJECT_ROOT/libbitcoinpqc/src/secp256k1_schnorr.c"
 
 # Source files for bitcoinpqc main API
 BITCOINPQC_SOURCES=(
@@ -72,6 +133,13 @@ BITCOINPQC_SOURCES=(
     "$PROJECT_ROOT/libbitcoinpqc/src/slh_dsa/sign.c"
     "$PROJECT_ROOT/libbitcoinpqc/src/slh_dsa/verify.c"
     "$PROJECT_ROOT/libbitcoinpqc/src/slh_dsa/utils.c"
+)
+
+# libsecp256k1 sources (v0.7.1 requires precomputed_ecmult*.c)
+SECP_SOURCES=(
+    "$SECP_DIR/src/secp256k1.c"
+    "$SECP_DIR/src/precomputed_ecmult.c"
+    "$SECP_DIR/src/precomputed_ecmult_gen.c"
 )
 
 # Dilithium reference implementation sources
@@ -131,7 +199,27 @@ unique_objname() {
     echo "$OBJ_DIR/$(echo "${rel%.c}" | tr '/' '_').o"
 }
 
-# Step 1: Compile Dilithium sources to object files with renamed randombytes.
+# Step 1: Compile libsecp256k1 sources
+echo "  Compiling libsecp256k1..."
+SECP_OBJS=()
+for src in "${SECP_SOURCES[@]}"; do
+    objname="$(unique_objname "$src")"
+    emcc -c "${COMMON_FLAGS[@]}" "${SECP_DEFINES[@]}" \
+        -I"$SECP_DIR" -I"$SECP_DIR/include" -I"$SECP_DIR/src" \
+        -Wno-unused-function \
+        "$src" -o "$objname"
+    SECP_OBJS+=("$objname")
+done
+
+# Step 1b: Compile secp256k1_schnorr.c with same SECP_DEFINES as libsecp256k1
+echo "  Compiling secp256k1_schnorr..."
+SECP_SCHNORR_OBJ="$(unique_objname "$SECP_SCHNORR_SOURCE")"
+emcc -c "${COMMON_FLAGS[@]}" "${SECP_DEFINES[@]}" "${INCLUDE_DIRS[@]}" \
+    -Wno-unused-function \
+    "$SECP_SCHNORR_SOURCE" -o "$SECP_SCHNORR_OBJ"
+SECP_OBJS+=("$SECP_SCHNORR_OBJ")
+
+# Step 2: Compile Dilithium sources to object files with renamed randombytes.
 # On WASM32, Dilithium's randombytes(uint8_t*, size_t) and SPHINCS+'s
 # randombytes(unsigned char*, unsigned long long) have incompatible ABIs.
 # The -D renames all Dilithium randombytes references to dilithium_randombytes,
@@ -146,7 +234,7 @@ for src in "${DILITHIUM_SOURCES[@]}"; do
     DILITHIUM_OBJS+=("$objname")
 done
 
-# Step 2: Compile all other sources to object files (normal randombytes)
+# Step 3: Compile all other sources to object files (normal randombytes)
 echo "  Compiling SPHINCS+, wrapper, and API sources..."
 OTHER_OBJS=()
 for src in "${OTHER_SOURCES[@]}"; do
@@ -156,10 +244,10 @@ for src in "${OTHER_SOURCES[@]}"; do
     OTHER_OBJS+=("$objname")
 done
 
-# Step 3: Link all object files into the final WASM module
+# Step 4: Link all object files into the final WASM module
 echo "  Linking..."
 emcc "${COMMON_FLAGS[@]}" "${LINK_FLAGS[@]}" \
-    "${DILITHIUM_OBJS[@]}" "${OTHER_OBJS[@]}" \
+    "${SECP_OBJS[@]}" "${DILITHIUM_OBJS[@]}" "${OTHER_OBJS[@]}" \
     -o "$OUTPUT_DIR/bitcoinpqc.js"
 
 # Clean up object files

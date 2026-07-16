@@ -66,8 +66,14 @@ Napi::Value GenerateKeypair(const Napi::CallbackInfo& info) {
   int algorithm = info[0].As<Napi::Number>().Int32Value();
   Napi::Uint8Array randomData = info[1].As<Napi::Uint8Array>();
 
-  if (randomData.ByteLength() < 128) {
-    Napi::Error::New(env, "Random data must be at least 128 bytes").ThrowAsJavaScriptException();
+  size_t min_entropy = 128;
+  if (algorithm == BITCOIN_PQC_SECP256K1_SCHNORR) {
+    min_entropy = 32;
+  }
+
+  if (randomData.ByteLength() < min_entropy) {
+    Napi::Error::New(env, "Random data is too short for the selected algorithm")
+        .ThrowAsJavaScriptException();
     return env.Null();
   }
 
