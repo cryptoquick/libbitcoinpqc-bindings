@@ -7,13 +7,18 @@ set -e
 
 echo "Building Bitcoin PQC libraries for WebAssembly..."
 
-# Require emcc on PATH (system package / nix / whatever). No emsdk version pin.
+# Prefer emcc on PATH. Arch ships it under /usr/lib/emscripten (bash profile.d
+# only — fish/npm often miss it), so fall back there before failing.
+if ! command -v emcc &> /dev/null; then
+    if [ -x /usr/lib/emscripten/emcc ]; then
+        export PATH="/usr/lib/emscripten:${PATH}"
+    fi
+fi
 if ! command -v emcc &> /dev/null; then
     echo "Error: Emscripten (emcc) not found on PATH."
     echo "Install Emscripten so emcc is available, e.g.:"
-    echo "  pacman -S emscripten"
+    echo "  pacman -S emscripten   # then: fish_add_path /usr/lib/emscripten"
     echo "  nix-shell -p emscripten"
-    echo "  apt install emscripten"
     exit 1
 fi
 echo "Using $(command -v emcc)"

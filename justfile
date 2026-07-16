@@ -239,10 +239,14 @@ wasm:
 emscripten:
     #!/usr/bin/env bash
     set -euo pipefail
+    # Arch: emcc lives in /usr/lib/emscripten (not always on fish/npm PATH).
+    if ! command -v emcc >/dev/null 2>&1 && [ -x /usr/lib/emscripten/emcc ]; then
+      export PATH="/usr/lib/emscripten:${PATH}"
+    fi
     if ! command -v emcc >/dev/null 2>&1; then
       echo "emcc not found on PATH." >&2
       echo "Install Emscripten so emcc is available (distro package, nix, etc.)." >&2
-      echo "  e.g. pacman -S emscripten   # or: nix-shell -p emscripten" >&2
+      echo "  e.g. pacman -S emscripten && fish_add_path /usr/lib/emscripten" >&2
       exit 1
     fi
     echo "=== emscripten wasm build + tests ==="
