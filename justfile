@@ -18,9 +18,6 @@
 
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
-emsdk_version := "6.0.2"
-emsdk_home := env_var_or_default("EMSDK", env_var("HOME") + "/emsdk")
-
 nix := "nix --option warn-dirty false"
 
 default:
@@ -44,7 +41,7 @@ test: submodule-check rust c-lib python nodejs wasm
     @echo ""
     @echo "=== all tests passed ==="
 
-# Like `test`, plus Emscripten (needs emsdk at ~/emsdk or $EMSDK).
+# Like `test`, plus Emscripten (requires `emcc` on PATH).
 test-all: test emscripten
     @echo ""
     @echo "=== all tests (incl. emscripten) passed ==="
@@ -237,20 +234,19 @@ wasm:
     echo "=== wasm-pack integration tests ==="
     make wasm-test
 
+# Emscripten package build/tests. Expects `emcc` on PATH (system package, nix, etc.).
+# No emsdk activation or version pin — use whatever Emscripten you have installed.
 emscripten:
     #!/usr/bin/env bash
     set -euo pipefail
-    emsdk_env="{{emsdk_home}}/emsdk_env.sh"
-    if [ ! -f "$emsdk_env" ]; then
-      echo "Emscripten SDK not found at {{emsdk_home}}" >&2
-      echo "Install with:" >&2
-      echo "  git clone https://github.com/emscripten-core/emsdk.git {{emsdk_home}}" >&2
-      echo "  cd {{emsdk_home}} && ./emsdk install {{emsdk_version}} && ./emsdk activate {{emsdk_version}}" >&2
+    if ! command -v emcc >/dev/null 2>&1; then
+      echo "emcc not found on PATH." >&2
+      echo "Install Emscripten so emcc is available (distro package, nix, etc.)." >&2
+      echo "  e.g. pacman -S emscripten   # or: nix-shell -p emscripten" >&2
       exit 1
     fi
     echo "=== emscripten wasm build + tests ==="
-    # shellcheck disable=SC1090
-    source "$emsdk_env"
+    emcc --version | head -1
     cd wasm
     npm ci
     npm run build

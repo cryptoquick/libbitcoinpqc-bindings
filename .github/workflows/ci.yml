@@ -8,7 +8,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  EMSDK_VERSION: "6.0.2"
 
 jobs:
   vectors-in-sync:
@@ -334,24 +333,20 @@ jobs:
           cache: npm
           cache-dependency-path: wasm/package-lock.json
 
-      - name: Cache Emscripten SDK
-        uses: actions/cache@v4
-        with:
-          path: ~/emsdk
-          key: emsdk-${{ env.EMSDK_VERSION }}-${{ runner.os }}
-
-      - name: Install Emscripten SDK
+      # Prefer system emcc when present (matches local just emscripten). On
+      # ubuntu-latest install via apt; no version pin — use distro latest.
+      - name: Install Emscripten
         run: |
-          if [ ! -f "$HOME/emsdk/emsdk" ]; then
-            git clone https://github.com/emscripten-core/emsdk.git "$HOME/emsdk"
+          if command -v emcc >/dev/null 2>&1; then
+            echo "emcc already on PATH: $(command -v emcc)"
+          else
+            sudo apt-get update
+            sudo apt-get install -y emscripten
           fi
-          cd "$HOME/emsdk"
-          ./emsdk install "${{ env.EMSDK_VERSION }}"
-          ./emsdk activate "${{ env.EMSDK_VERSION }}"
+          emcc --version | head -1
 
       - name: Build and test Emscripten wasm package (3-algorithm E2E)
         run: |
-          source "$HOME/emsdk/emsdk_env.sh"
           cd wasm
           npm ci
           npm run build

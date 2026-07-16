@@ -7,17 +7,17 @@ set -e
 
 echo "Building Bitcoin PQC libraries for WebAssembly..."
 
-# Check if Emscripten is available
+# Require emcc on PATH (system package / nix / whatever). No emsdk version pin.
 if ! command -v emcc &> /dev/null; then
-    echo "Error: Emscripten (emcc) not found!"
-    echo "Please install and activate Emscripten SDK:"
-    echo "  git clone https://github.com/emscripten-core/emsdk.git"
-    echo "  cd emsdk"
-    echo "  ./emsdk install 6.0.2   # pinned in CI (.github/workflows/ci.yml)"
-    echo "  ./emsdk activate 6.0.2"
-    echo "  source ./emsdk_env.sh"
+    echo "Error: Emscripten (emcc) not found on PATH."
+    echo "Install Emscripten so emcc is available, e.g.:"
+    echo "  pacman -S emscripten"
+    echo "  nix-shell -p emscripten"
+    echo "  apt install emscripten"
     exit 1
 fi
+echo "Using $(command -v emcc)"
+emcc --version | head -1
 
 # Get the project root directory (assuming script is in wasm/bin)
 PROJECT_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"

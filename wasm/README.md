@@ -116,18 +116,23 @@ If you want to build the WASM module from source:
 
 ### 4.1. Prerequisites
 
-1. Install Emscripten SDK (anywhere on your local filesystem):
+1. **Emscripten (`emcc`) on your PATH** — any current install is fine (no version pin). Examples:
+
 ```bash
-git clone https://github.com/emscripten-core/emsdk.git
-cd emsdk
-./emsdk install latest
-./emsdk activate latest
-source ./emsdk_env.sh
+# Arch / Manjaro
+pacman -S emscripten
+
+# Nix
+nix-shell -p emscripten
+
+# Debian / Ubuntu
+apt install emscripten
 ```
 
-2. At the terminal, move back into the `wasm` directory of this project
+Confirm with `emcc --version`.
 
-3. Install dependencies:
+2. From the `wasm` directory of this project, install npm dependencies:
+
 ```bash
 npm install
 ```
